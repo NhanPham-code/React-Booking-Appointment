@@ -180,7 +180,7 @@ export default function TimeSlotSelector({
 
                                 {/* Time */}
                                 <Typography
-                                    variant="body1"
+                                    variant="body2"
                                     fontWeight={600}
                                     color={
                                         isSelected

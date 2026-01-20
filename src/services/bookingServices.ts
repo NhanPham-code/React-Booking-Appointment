@@ -49,12 +49,40 @@ export const bookingService = {
         // Update tất cả TimeSlots thành isBooked = false
         for (const slot of booking.timeSlots) {
             try {
-                console.log(`Marking slot ${slot.timeSlotId} as booked... `);
+                console.log(`Marking slot ${slot.timeSlotId} as available... `);
                 await timeSlotService. markAsAvailable(slot.timeSlotId);
-                console.log(`Slot ${slot.timeSlotId} marked as booked successfully`);
+                console.log(`Slot ${slot.timeSlotId} marked as available successfully`);
             } catch (error) {
-                console.error(`Failed to mark slot ${slot.timeSlotId} as booked:`, error);
+                console.error(`Failed to mark slot ${slot.timeSlotId} as available:`, error);
             }
         }
+    },
+
+    /**
+     * Reschedule booking:
+     * 1. Lấy thông tin booking cũ
+     * 2. Delete booking cũ (tự động release slots)
+     * 3. Create booking mới với slots mới
+     */
+    async reschedule(
+        bookingId: string, 
+        newTimeSlotData: CreateBookingDTO['timeSlots']
+    ): Promise<IBooking> {
+        // 1. Lấy booking cũ
+        const oldBooking = await this.getById(bookingId);
+        
+        // 2. Delete booking cũ (sẽ release slots cũ)
+        await this.delete(bookingId);
+        
+        // 3. Tạo booking mới với cùng thông tin khách hàng
+        const newBookingData: CreateBookingDTO = {
+            customerName: oldBooking.customerName,
+            phoneNumber: oldBooking.phoneNumber,
+            notes: oldBooking.notes || '',
+            timeSlots: newTimeSlotData
+        };
+        
+        // 4. Create booking mới
+        return await this.create(newBookingData);
     }
 };
