@@ -1,8 +1,8 @@
 import { UserWithoutPassword } from '@/src/models/authentication';
 import { MOCK_USERS } from '@/src/data/mockUsers';
 import { LoginFormData } from '../validations/loginSchema';
-
-const STORAGE_KEY = 'user_session';
+import Cookies from 'js-cookie';
+import { COOKIE_USER_KEY } from '../constants/cookieKey';
 
 export const authService = {
 
@@ -22,7 +22,6 @@ export const authService = {
             email: user.email,
         };
 
-        // 2. Lưu vào storage (Logic được đóng gói tại đây)
         this.saveSession(userWithoutPassword);
 
         return userWithoutPassword;
@@ -30,24 +29,15 @@ export const authService = {
 
     async logout(): Promise<void> {
         // Xóa session
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(STORAGE_KEY);
-        }
+        Cookies.remove(COOKIE_USER_KEY);
     },
 
-    // --- Helper Methods (Để đóng gói việc tương tác với Storage) ---
     saveSession(user: UserWithoutPassword) {
-        // Kiểm tra 'window' để tránh lỗi khi Next.js render trên server
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-        }
+        Cookies.set(COOKIE_USER_KEY, JSON.stringify(user), { expires: 7 });
     },
 
     getSession(): UserWithoutPassword | null {
-        if (typeof window !== 'undefined') {
-            const data = localStorage.getItem(STORAGE_KEY);
-            return data ? JSON.parse(data) : null;
-        }
-        return null;
+        const data = Cookies.get(COOKIE_USER_KEY);
+        return data ? JSON.parse(data) : null;
     }
 };

@@ -24,32 +24,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
+    // check login session
     useEffect(() => {
         const initAuth = async () => {
-            try {
-                const storedUser = authService.getSession();
-                if (storedUser) {
-                    setUser(storedUser);
-                }
-            } catch (error) {
-                console.error('Session restore failed', error);
-                authService.logout();
-            } finally {
-                setIsLoading(false);
+            const storedUser = authService.getSession();
+            if (storedUser) {
+                setUser(storedUser);
             }
+            setIsLoading(false);
         };
         initAuth();
-    }, []); // run only mount
+    }, []);
 
-    // 2. Viết hàm Login Wrapper: Vừa gọi Service, Vừa cập nhật State
+    // Viết hàm Login Wrapper: Vừa gọi Service, Vừa cập nhật State
     const login = async (credentials: LoginFormData) => {
-        // Gọi service để lấy data và lưu storage
-        const userMethod = await authService.login(credentials);
+        // get user data
+        const user = await authService.login(credentials);
         
-        if (userMethod) {
-            // CẬP NHẬT STATE NGAY LẬP TỨC
-            setUser(userMethod);
-            // Redirect luôn tại đây hoặc trả về true để component tự redirect
+        if (user) {
+            // update state to trigger update UI
+            setUser(user);
             router.push('/');
             return; 
         } else {

@@ -17,17 +17,11 @@ import {
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import { loginSchema } from '@/src/validations/loginSchema';
 import { LoginFormData } from '@/src/validations/loginSchema';
 import LockIcon from '@mui/icons-material/Lock';
 import PersonIcon from '@mui/icons-material/Person';
-import { useAuth } from '@/src/context/AuthContext'; // Import hook này
-
-// ===== VALIDATION SCHEMA =====
-const loginSchema = yup.object({
-    username: yup.string().required('Username is required'),
-    password: yup.string().required('Password is required'),
-});
+import { useAuth } from '@/src/context/AuthContext'; // Import useAuth from AuthContext
 
 export default function LoginPage() {
     const { login } = useAuth();

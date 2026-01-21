@@ -6,6 +6,7 @@ export const QUERY_KEYS = {
         ALL: ['timeSlots'] as const,
         BY_DATE: (date: string) => ['timeSlots', 'byDate', date] as const,
         BY_ID: (id: string) => ['timeSlots', id] as const,
+        BY_RANGE: (start: string, end: string) => ['timeSlots', 'range', { start, end }] as const,
     },
     
     // Bookings
