@@ -6,8 +6,9 @@ import Navbar from '@/src/components/common/Navbar';
 import PageHeader from '@/src/components/common/PageHeader';
 import TimeSlotForm from '@/src/components/timeslots/TimeSlotsForm';
 import TimeSlotList from '@/src/components/timeslots/TimeSlotsList';
+import { withProtectedRoute } from '@/src/hoc/withProtectedRoute';
 
-export default function TimeSlotsPage() {
+function TimeSlotsPage() {
 
     return (
         <>
@@ -46,3 +47,8 @@ export default function TimeSlotsPage() {
         </>
     );
 }
+
+// only doctor access (Protect by HOC)
+export default withProtectedRoute(TimeSlotsPage, { 
+    allowedRoles: ['doctor'] 
+});

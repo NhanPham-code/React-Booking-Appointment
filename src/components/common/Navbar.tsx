@@ -10,16 +10,18 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
+import { useAuth } from '@/src/context/AuthContext';
 
 export default function Navbar() {
     const router = useRouter();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = React.useState(false);
+    const { user, isAuthenticated, logout } = useAuth(); // Lấy data từ Context
 
     const navItems = [
         { label: 'Home', path: '/' },
         { label: 'Book Appointment', path: '/booking' },
-        { label: 'Manage Time Slots', path: '/timeslots' },
+        { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] },
     ];
 
     const handleDrawerToggle = () => {
@@ -123,6 +125,15 @@ export default function Navbar() {
                                 </Button>
                             ))}
                         </Box>
+
+                        {/* Hiện user info nếu đã login */}
+                        {isAuthenticated && (
+                            <div>
+                                {/* <Avatar /> */}
+                                <Typography color='primary'>{user?.fullName}</Typography>
+                                <Button onClick={logout}>Logout</Button>
+                            </div>
+                        )}
 
                         {/* Mobile Menu Button */}
                         <IconButton

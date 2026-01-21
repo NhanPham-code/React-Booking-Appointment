@@ -6,8 +6,9 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ReactNode, useState } from 'react';
 import { theme } from '@/src/theme/theme';
+import { AuthProvider } from '../context/AuthContext';
 
-export default function Providers({ children }:  { children: ReactNode }) {
+export default function Providers({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -21,7 +22,9 @@ export default function Providers({ children }:  { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
             <ThemeProvider theme={theme}>
                 <CssBaseline />
-                {children}
+                <AuthProvider>
+                    {children}
+                </AuthProvider>
             </ThemeProvider>
         </QueryClientProvider>
     );
