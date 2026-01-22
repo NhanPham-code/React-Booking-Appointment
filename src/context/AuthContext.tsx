@@ -6,9 +6,8 @@ import { authService } from '@/src/services/authService';
 import { UserWithoutPassword } from '@/src/models/authentication';
 import { LoginFormData } from '../validations/loginSchema';
 import { CircularProgress, Box } from '@mui/material';
-import { useRouter } from 'next/navigation'; // Import router để redirect luôn trong context (tuỳ chọn)
+import { useRouter } from 'next/navigation';
 
-// Manage state of login and logout
 interface AuthContextType {
     user: UserWithoutPassword | null;
     isAuthenticated: boolean;
@@ -17,8 +16,10 @@ interface AuthContextType {
     logout: () => void;
 }
 
+// Use context to provide auth state and functions
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// AuthProvider component to wrap the app and provide auth context
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserWithoutPassword | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initAuth();
     }, []);
 
-    // Viết hàm Login Wrapper: Vừa gọi Service, Vừa cập nhật State
+    // Check login function and update state
     const login = async (credentials: LoginFormData) => {
         // get user data
         const user = await authService.login(credentials);
@@ -47,13 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/');
             return; 
         } else {
-            throw new Error('Đăng nhập thất bại');
+            throw new Error('Login failed');
         }
     };
 
     const logout = async () => {
         await authService.logout();
-        setUser(null); // Reset state về null
+        setUser(null); // Reset state to null
         router.push('/');
     };
 
@@ -65,21 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
     }
 
-    // PROVIDE DATA CHO TOÀN APP
+    // PROVIDE DATA TO THE ENTIRE APP
     return (
         <AuthContext.Provider value={{ 
             user, 
             isAuthenticated: !!user, 
             isLoading,
-            login,  // Export hàm login
-            logout  // Export hàm logout
+            login,  // Export login function
+            logout  // Export logout function
         }}>
             {children}
         </AuthContext.Provider>
     );
 }
 
-// 3. Export custom hook để dùng ở các trang khác
+// Export custom hook to use auth context
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) throw new Error('useAuth must be used within an AuthProvider');

@@ -12,7 +12,6 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import LogoutIcon from '@mui/icons-material/Logout';
-import PersonIcon from '@mui/icons-material/Person';
 import HistoryIcon from '@mui/icons-material/History';
 import { useAuth } from '@/src/context/AuthContext';
 import LoginIcon from '@mui/icons-material/Login';
@@ -34,17 +33,19 @@ export default function Navbar() {
         { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] }, // Only doctor
     ];
 
-    // Then in the render, filter by role:
+    // Then in the render, filter by role
     const visibleNavItems = navItems.filter(item => {
-        if (!item.roles) return true; // No role restriction
-        if (!user) return false; // Must be logged in
+        if (!item.roles) return true;
+        if (!user) return false;
         return item.roles.includes(user.role);
     });
 
+    // set mobile drawer open/close
     const handleDrawerToggle = () => {
         setMobileOpen(!mobileOpen);
     };
 
+    // Navigation Handler
     const handleNavigate = (path: string) => {
         router.push(path);
         setMobileOpen(false);
@@ -55,10 +56,12 @@ export default function Navbar() {
         setAnchorElUser(event.currentTarget);
     };
 
+    // Close User Menu
     const handleCloseUserMenu = () => {
         setAnchorElUser(null);
     };
 
+    // Logout Handler
     const handleLogout = () => {
         handleCloseUserMenu();
         logout();
@@ -67,18 +70,38 @@ export default function Navbar() {
     // Mobile drawer content
     const drawer = (
         <Box sx={{ width: 250, pt: 2 }}>
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CalendarMonthIcon color="primary" />
-                    <Typography variant="h6" fontWeight={700}>
+                {isAuthenticated && user ? (
+                    <>
+                        {/* User Avatar and Name (non-clickable) */}
+                        <Box>
+                            <Tooltip title="Open settings">
+                                <IconButton sx={{ p: 0 }}>
+                                    <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                                        {user.fullName?.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                        <Box>
+                            <Typography variant="subtitle1" fontWeight={700}>
+                                {user.fullName}
+                            </Typography>
+                        </Box>
+                    </>
+                ) : (
+                    <Typography variant="subtitle1" fontWeight={700}>
                         Booking Appointment App
                     </Typography>
-                </Box>
+                )}
                 <IconButton onClick={handleDrawerToggle}>
                     <CloseIcon />
                 </IconButton>
             </Box>
+
             <Divider />
+
             <List>
                 {/* Navigation Links */}
                 {visibleNavItems.map((item) => (
@@ -99,25 +122,42 @@ export default function Navbar() {
                     </ListItem>
                 ))}
 
-                {/* AUTH BUTTONS (Login or Logout) */}
                 <Divider sx={{ my: 1 }} />
 
-                {isAuthenticated ? (
-                    // User is Logged In -> Show LOGOUT
-                    <ListItem disablePadding>
-                        <ListItemButton onClick={handleLogout}>
-                            <ListItemIcon>
-                                <LogoutIcon color="error" />
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={
-                                    <Typography color="error" fontWeight={500}>
+                {/* AUTH BUTTONS (Login or Logout) */}
+                {isAuthenticated && user ? (
+                    <>
+                        <ListItem disablePadding>
+                            <ListItemButton
+                                onClick={() => handleNavigate('/booking-history')}
+                                selected={pathname === '/booking-history'} // Highlights if active
+                                sx={{
+                                    '&.Mui-selected': {
+                                        bgcolor: 'primary.50',
+                                        borderLeft: '4px solid',
+                                        borderColor: 'primary.main'
+                                    }
+                                }}
+                            >
+                                <ListItemIcon>
+                                    <HistoryIcon color="action" />
+                                </ListItemIcon>
+                                <ListItemText primary="Booking History" />
+                            </ListItemButton>
+                        </ListItem>
+
+                        <ListItem disablePadding>
+                            <ListItemButton onClick={handleLogout}>
+                                <ListItemIcon>
+                                    <LogoutIcon color="error" />
+                                </ListItemIcon>
+                                <ListItemText
+                                    primary={<Typography color="error" fontWeight={500}>
                                         Logout
-                                    </Typography>
-                                }
-                            />
-                        </ListItemButton>
-                    </ListItem>
+                                    </Typography>} />
+                            </ListItemButton>
+                        </ListItem>
+                    </>
                 ) : (
                     // User is Guest -> Show LOGIN
                     <ListItem disablePadding>
@@ -187,7 +227,7 @@ export default function Navbar() {
                         </Box>
 
                         {/* AUTH SECTION */}
-                        <Box sx={{ flexGrow: 0 }}>
+                        <Box sx={{ flexGrow: 0, display: { xs: 'none', md: 'flex' } }}>
                             {isAuthenticated && user ? (
                                 <>
                                     {/* Avatar (Clickable) */}
@@ -201,7 +241,7 @@ export default function Navbar() {
 
                                     {/* Dropdown Menu */}
                                     <Menu
-                                        sx={{ mt: '45px' }} 
+                                        sx={{ mt: '45px' }}
                                         id="menu-appbar"
                                         anchorEl={anchorElUser}
                                         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -219,11 +259,7 @@ export default function Navbar() {
                                             </Typography>
                                         </Box>
                                         <Divider />
-                                        {/* <MenuItem onClick={() => {router.push('/profile')}}>
-                                            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                                            Profile
-                                        </MenuItem> */}
-                                        <MenuItem onClick={() => {router.push('/booking-history')}}>
+                                        <MenuItem onClick={() => { router.push('/booking-history') }}>
                                             <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
                                             Booking History
                                         </MenuItem>

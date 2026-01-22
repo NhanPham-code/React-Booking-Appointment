@@ -22,8 +22,16 @@ import { LoginFormData } from '@/src/validations/loginSchema';
 import LockIcon from '@mui/icons-material/Lock';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '@/src/context/AuthContext'; // Import useAuth from AuthContext
+import Link from 'next/link';
+import IconButton from '@mui/material/IconButton';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+/**
+ * Login page component
+ * @returns JSX.Element
+ */
 export default function LoginPage() {
+    // useAuth CONTEXT for authentication
     const { login } = useAuth();
     const [error, setError] = React.useState<string | null>(null);
 
@@ -35,12 +43,12 @@ export default function LoginPage() {
         },
     });
 
-    // ===== SUBMIT HANDLER =====
+    // Handle form submission
     const onSubmit = async (data: LoginFormData) => {
         setError(null);
-        
+
         try {
-            // GỌI QUA CONTEXT (để Context tự cập nhật state)
+            // Call login function from useAuth context
             await login(data);
 
         } catch (err) {
@@ -62,7 +70,24 @@ export default function LoginPage() {
             <Container maxWidth="sm">
                 <Card sx={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
                     <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                        {/* ===== HEADER ===== */}
+
+                        {/* Back button*/}
+                        <Box sx={{ mb: 2 }}>
+                            <Link href="/" passHref>
+                                <IconButton
+                                    aria-label="back"
+                                    sx={{
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        bgcolor: 'background.paper',
+                                        '&:hover': { bgcolor: 'action.hover' }
+                                    }}
+                                >
+                                    <ArrowBackIcon />
+                                </IconButton>
+                            </Link>
+                        </Box>
+
                         <Box sx={{ textAlign: 'center', mb: 4 }}>
                             <Box
                                 sx={{
@@ -83,31 +108,33 @@ export default function LoginPage() {
                             </Typography>
                         </Box>
 
-                        {/* ===== ERROR MESSAGE ===== */}
                         {error && (
                             <Alert severity="error" sx={{ mb: 3 }}>
                                 {error}
                             </Alert>
                         )}
 
-                        {/* ===== LOGIN FORM ===== */}
+                        {/* LOGIN FORM */}
                         <Box component="form" onSubmit={handleSubmit(onSubmit)}>
                             <Stack spacing={3}>
+                                {/* User controller to update UI with React Hook Form */}
                                 <Controller
                                     name="username"
                                     control={control}
                                     render={({ field }) => (
                                         <TextField
-                                            {...field}
+                                            {...field} // Spread the field props (value, onChange...) from React Hook Form
                                             label="Username"
                                             placeholder="Enter your username"
                                             error={!!errors.username}
                                             helperText={errors.username?.message}
                                             fullWidth
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                                                ),
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                                                    ),
+                                                },
                                             }}
                                         />
                                     )}
@@ -125,10 +152,12 @@ export default function LoginPage() {
                                             error={!!errors.password}
                                             helperText={errors.password?.message}
                                             fullWidth
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                                                ),
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                                                    ),
+                                                },
                                             }}
                                         />
                                     )}
@@ -153,14 +182,14 @@ export default function LoginPage() {
                             </Typography>
                         </Divider>
 
-                        {/* ===== DEMO CREDENTIALS ===== */}
+                        {/* DEMO CREDENTIALS */}
                         <Stack spacing={2}>
                             <Box>
-                                <Typography 
-                                    variant="caption" 
-                                    fontWeight={600} 
-                                    color="primary.main" 
-                                    display="block" 
+                                <Typography
+                                    variant="caption"
+                                    fontWeight={600}
+                                    color="primary.main"
+                                    display="block"
                                     gutterBottom
                                 >
                                     🩺 Doctor Account:
@@ -171,11 +200,11 @@ export default function LoginPage() {
                                 </Stack>
                             </Box>
                             <Box>
-                                <Typography 
-                                    variant="caption" 
-                                    fontWeight={600} 
-                                    color="secondary.main" 
-                                    display="block" 
+                                <Typography
+                                    variant="caption"
+                                    fontWeight={600}
+                                    color="secondary.main"
+                                    display="block"
                                     gutterBottom
                                 >
                                     👤 Patient 1 Account:
@@ -186,11 +215,11 @@ export default function LoginPage() {
                                 </Stack>
                             </Box>
                             <Box>
-                                <Typography 
-                                    variant="caption" 
-                                    fontWeight={600} 
-                                    color="secondary.main" 
-                                    display="block" 
+                                <Typography
+                                    variant="caption"
+                                    fontWeight={600}
+                                    color="secondary.main"
+                                    display="block"
                                     gutterBottom
                                 >
                                     👤 Patient 2 Account:

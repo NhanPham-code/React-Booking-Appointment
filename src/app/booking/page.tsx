@@ -47,7 +47,7 @@ function BookingPage() {
                                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5, px: 1 }}>
                                     Jump to Date
                                 </Typography>
-                                {/* We wrap it in a Box to override styles slightly to make it fit the MUI theme better */}
+                                
                                 <Box sx={{
                                     '& .react-datepicker': {
                                         border: 'none',

@@ -26,7 +26,7 @@ export function withProtectedRoute<P extends object>(
         const router = useRouter();
         const { allowedRoles } = options;
 
-        // CASE 1: Đang loading
+        // loading
         if (isLoading) {
             console.log('⏳ [withProtectedRoute] Loading...');
             return (
@@ -46,7 +46,7 @@ export function withProtectedRoute<P extends object>(
             );
         }
 
-        // CASE 2: Chưa đăng nhập
+        // not authenticated
         if (!isAuthenticated || !user) {
             console.log('🚫 [withProtectedRoute] Not authenticated, should redirect to /login');
             return (
@@ -74,7 +74,7 @@ export function withProtectedRoute<P extends object>(
             );
         }
 
-        // CASE 3: Check role
+        // check role authorization
         if (allowedRoles && !allowedRoles.includes(user.role)) {
             console.log('⛔ [withProtectedRoute] Access denied. User role:', user.role, 'Required:', allowedRoles);
             return (
@@ -109,7 +109,7 @@ export function withProtectedRoute<P extends object>(
             );
         }
 
-        // CASE 4: OK - Render component
+        // authorized
         console.log('✅ [withProtectedRoute] Access granted');
         return <Component {...props} />;
     };
