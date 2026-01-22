@@ -3,10 +3,9 @@ import { Box, Typography } from '@mui/material';
 
 interface PageHeaderProps {
     title: string;
-    subtitle?: string;
 }
 
-export default function PageHeader({ title, subtitle }: PageHeaderProps) {
+export default function PageHeader({ title }: PageHeaderProps) {
     return (
         <Box sx={{ mb: { xs: 3, sm: 4 }, textAlign: 'center', px: { xs: 1, sm: 2 } }}>
             <Typography 

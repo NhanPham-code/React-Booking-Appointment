@@ -1,7 +1,7 @@
 import httpClient from '@/src/utils/httpClient';
 import { API_ENDPOINTS } from '@/src/constants/api';
 import { ITimeSlot, CreateTimeSlotDTO } from '@/src/models/timeSlot';
-import { isBefore, parseISO } from 'date-fns';
+import { isBefore } from 'date-fns';
 
 export const timeSlotService = {
 
@@ -10,8 +10,17 @@ export const timeSlotService = {
         return response.data;
     },
 
+    async getByDate(date: string): Promise<ITimeSlot[]> {
+        try {
+            const response = await httpClient.get<ITimeSlot[]>(API_ENDPOINTS.TIME_SLOT);
+            return response.data.filter(slot => slot.startTime.startsWith(date));
+        } catch (error) {
+            console.error('Error fetching time slots by date:', error);
+            return [];
+        }
+    },
+
     // Get Slots by Range (The "Professional" Way)
-    // We fetch all data (MockAPI limitation) and filter in memory using ISO strings.
     async getSlotsByRange(startDate: string, endDate: string): Promise<(ITimeSlot & { isPast: boolean })[]> {
         const now = new Date();
 

@@ -11,10 +11,18 @@ export const MOCK_USERS: IUser[] = [
     },
     {
         id: '2',
-        username: 'patient',
+        username: 'patient1',
         password: 'patient123',
         role: 'patient',
         fullName: 'Jane Doe',
-        email: 'patient@email.com'
+        email: 'patient1@email.com'
+    },
+    {
+        id: '3',
+        username: 'patient2',
+        password: 'patient123',
+        role: 'patient',
+        fullName: 'Bob Johnson',
+        email: 'patient2@email.com'
     }
 ];

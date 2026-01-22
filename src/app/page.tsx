@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client';
 
-import { Container, Grid, Box, Typography } from '@mui/material';
+import { Container, Grid, Box } from '@mui/material';
 import Navbar from '@/src/components/common/Navbar';
 import PageHeader from '@/src/components/common/PageHeader';
 import FeatureCard from '@/src/components/home/FeatureCard';
@@ -28,11 +28,11 @@ export default function Home() {
             gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
         },
         {
-            title: 'View All Bookings',
+            title: 'Booking History',
             description: 'See all your upcoming appointments in one place. Easy to track and manage your schedule.',
             icon: <EventNoteIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main' }} />,
             buttonText: 'View Bookings',
-            href: '/booking',
+            href: '/booking-history',
             gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
         },
     ];
@@ -49,8 +49,7 @@ export default function Home() {
             }}>
                 <Container maxWidth="lg">
                     <PageHeader
-                        title="Appointment Booking System"
-                        subtitle="Simplify your scheduling with our modern booking platform"
+                        title="Appointment Booking App"
                     />
 
                     <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} sx={{ mt: { xs: 2, sm: 3, md: 4 } }}>
@@ -63,12 +62,6 @@ export default function Home() {
                             </Grid>
                         ))}
                     </Grid>
-
-                    <Box sx={{ mt: { xs: 6, sm: 8 }, textAlign: 'center' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                            Built with Next.js, Material-UI, and React Query
-                        </Typography>
-                    </Box>
                 </Container>
             </Box>
         </>

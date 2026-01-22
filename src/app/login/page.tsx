@@ -178,10 +178,25 @@ export default function LoginPage() {
                                     display="block" 
                                     gutterBottom
                                 >
-                                    👤 Patient Account:
+                                    👤 Patient 1 Account:
                                 </Typography>
                                 <Stack direction="row" spacing={1}>
-                                    <Chip label="patient" size="small" variant="outlined" />
+                                    <Chip label="patient1" size="small" variant="outlined" />
+                                    <Chip label="patient123" size="small" variant="outlined" />
+                                </Stack>
+                            </Box>
+                            <Box>
+                                <Typography 
+                                    variant="caption" 
+                                    fontWeight={600} 
+                                    color="secondary.main" 
+                                    display="block" 
+                                    gutterBottom
+                                >
+                                    👤 Patient 2 Account:
+                                </Typography>
+                                <Stack direction="row" spacing={1}>
+                                    <Chip label="patient2" size="small" variant="outlined" />
                                     <Chip label="patient123" size="small" variant="outlined" />
                                 </Stack>
                             </Box>

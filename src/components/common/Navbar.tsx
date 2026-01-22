@@ -13,7 +13,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import SettingsIcon from '@mui/icons-material/Settings';
+import HistoryIcon from '@mui/icons-material/History';
 import { useAuth } from '@/src/context/AuthContext';
 import LoginIcon from '@mui/icons-material/Login';
 
@@ -30,17 +30,15 @@ export default function Navbar() {
 
     const navItems = [
         { label: 'Home', path: '/' },
-        { label: 'Book Appointment', path: '/booking' },
-        // Only show this if user is a doctor
-        { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] },
+        { label: 'Book Appointment', path: '/booking', roles: ['patient'] }, // Only patient
+        { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] }, // Only doctor
     ];
 
-    // Filter items based on user role
-    const filteredNavItems = navItems.filter(item => {
-        // If item has no roles defined, everyone sees it
-        if (!item.roles) return true;
-        // If item has roles, check if logged-in user has that role
-        return user && item.roles.includes(user.role);
+    // Then in the render, filter by role:
+    const visibleNavItems = navItems.filter(item => {
+        if (!item.roles) return true; // No role restriction
+        if (!user) return false; // Must be logged in
+        return item.roles.includes(user.role);
     });
 
     const handleDrawerToggle = () => {
@@ -52,7 +50,7 @@ export default function Navbar() {
         setMobileOpen(false);
     };
 
-    // --- User Menu Handlers ---
+    // User Menu Handlers
     const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorElUser(event.currentTarget);
     };
@@ -65,7 +63,6 @@ export default function Navbar() {
         handleCloseUserMenu();
         logout();
     };
-    // --------------------------
 
     // Mobile drawer content
     const drawer = (
@@ -74,7 +71,7 @@ export default function Navbar() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CalendarMonthIcon color="primary" />
                     <Typography variant="h6" fontWeight={700}>
-                        BookingApp
+                        Booking Appointment App
                     </Typography>
                 </Box>
                 <IconButton onClick={handleDrawerToggle}>
@@ -83,8 +80,8 @@ export default function Navbar() {
             </Box>
             <Divider />
             <List>
-                {/* 1. Navigation Links */}
-                {filteredNavItems.map((item) => (
+                {/* Navigation Links */}
+                {visibleNavItems.map((item) => (
                     <ListItem key={item.path} disablePadding>
                         <ListItemButton
                             onClick={() => handleNavigate(item.path)}
@@ -102,7 +99,7 @@ export default function Navbar() {
                     </ListItem>
                 ))}
 
-                {/* 2. AUTH BUTTONS (Login or Logout) */}
+                {/* AUTH BUTTONS (Login or Logout) */}
                 <Divider sx={{ my: 1 }} />
 
                 {isAuthenticated ? (
@@ -129,7 +126,7 @@ export default function Navbar() {
                                 <LoginIcon color="primary" />
                             </ListItemIcon>
                             <ListItemText
-                                primary= {
+                                primary={
                                     <Typography color="primary.main" fontWeight={600}>
                                         Login
                                     </Typography>
@@ -174,7 +171,7 @@ export default function Navbar() {
 
                         {/* Desktop Navigation Links (Filtered by Role) */}
                         <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 1 }}>
-                            {filteredNavItems.map((item) => (
+                            {visibleNavItems.map((item) => (
                                 <Button
                                     key={item.path}
                                     onClick={() => handleNavigate(item.path)}
@@ -193,7 +190,7 @@ export default function Navbar() {
                         <Box sx={{ flexGrow: 0 }}>
                             {isAuthenticated && user ? (
                                 <>
-                                    {/* 1. Avatar (Clickable) */}
+                                    {/* Avatar (Clickable) */}
                                     <Tooltip title="Open settings">
                                         <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                                             <Avatar sx={{ bgcolor: 'secondary.main' }}>
@@ -202,9 +199,9 @@ export default function Navbar() {
                                         </IconButton>
                                     </Tooltip>
 
-                                    {/* 2. Dropdown Menu */}
+                                    {/* Dropdown Menu */}
                                     <Menu
-                                        sx={{ mt: '45px' }}
+                                        sx={{ mt: '45px' }} 
                                         id="menu-appbar"
                                         anchorEl={anchorElUser}
                                         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -222,13 +219,13 @@ export default function Navbar() {
                                             </Typography>
                                         </Box>
                                         <Divider />
-                                        <MenuItem onClick={handleCloseUserMenu}> {/* change function to handle */}
+                                        {/* <MenuItem onClick={() => {router.push('/profile')}}>
                                             <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                                             Profile
-                                        </MenuItem>
-                                        <MenuItem onClick={handleCloseUserMenu}> {/* change function to handle */}
-                                            <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                                            Settings
+                                        </MenuItem> */}
+                                        <MenuItem onClick={() => {router.push('/booking-history')}}>
+                                            <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+                                            Booking History
                                         </MenuItem>
                                         <Divider />
                                         <MenuItem onClick={handleLogout}>

@@ -3,16 +3,15 @@
 export const QUERY_KEYS = {
     // TimeSlots
     TIME_SLOTS: {
-        ALL: ['timeSlots'] as const,
-        BY_DATE: (date: string) => ['timeSlots', 'byDate', date] as const,
-        BY_ID: (id: string) => ['timeSlots', id] as const,
-        BY_RANGE: (start: string, end: string) => ['timeSlots', 'range', { start, end }] as const,
+        ALL: ['timeSlots'],
+        BY_DATE: (date: string) => ['timeSlots', 'byDate', date],
+        BY_RANGE: (start: string, end: string) => ['timeSlots', 'range', { start, end }],
     },
     
     // Bookings
     BOOKINGS:  {
-        ALL:  ['bookings'] as const,
-        BY_ID: (id: string) => ['bookings', id] as const,
-        BY_CUSTOMER: (customerId:  string) => ['bookings', 'customer', customerId] as const,
+        ALL:  ['bookings'],
+        BY_ID: (id: string) => ['bookings', id],
+        BY_USER: (userId:  string) => ['bookings', 'user', userId],
     },
-} as const;
+};

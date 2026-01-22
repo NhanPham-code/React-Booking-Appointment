@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
@@ -18,7 +18,13 @@ import { timeSlotSchema, TimeSlotFormData } from '@/src/validations/timeSlotSche
 import { QUERY_KEYS } from '@/src/constants/queryKey';
 import DateFilter from '../common/DateFilter';
 
-// --- Helper Functions ---
+/**
+ * Convert 12-hour time to 24-hour time string.
+ * @param hour The hour in 12-hour format.
+ * @param minute The minute.
+ * @param period 'AM' or 'PM'.
+ * @returns Time string in 24-hour format (HH:mm).
+ */
 function convertTo24Hour(hour: number, minute: number, period: 'AM' | 'PM'): string {
     let hour24 = hour;
     if (period === 'PM' && hour !== 12) hour24 = hour + 12;
@@ -26,13 +32,20 @@ function convertTo24Hour(hour: number, minute: number, period: 'AM' | 'PM'): str
     return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 }
 
-// get data from parent
+/**
+ * CreateSlotDialog component for adding new time slots.
+ */
 interface CreateSlotDialogProps {
-    open: boolean;
-    onClose: () => void;
-    initialDate: string | undefined;
+    open: boolean; // Whether the dialog is open.
+    onClose: () => void; // Function to close the dialog.
+    initialDate: string | undefined; // Initial date for the time slot in 'YYYY-MM-DD' format.
 }
 
+/**
+ * CreateSlotDialog component for adding new time slots.
+ * @param props Component props.
+ * @returns JSX.Element
+ */
 export default function CreateSlotDialog({ open, onClose, initialDate }: CreateSlotDialogProps) {
     const queryClient = useQueryClient();
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
@@ -48,7 +61,7 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
 
     // FIX 1: Removed manual `selectedDate` state. 
     // We now use `watch` and `reset` from useForm.
-    const { handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<TimeSlotFormData>({
+    const { control, handleSubmit, setValue, reset, formState: { errors } } = useForm<TimeSlotFormData>({
         resolver: yupResolver(timeSlotSchema),
         defaultValues: {
             date: initialDate,
@@ -57,26 +70,20 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
         }
     });
 
-    // Watch the date field so we can pass it to DateFilter
-    const currentDate = watch('date');
+    // Watching the date field directly from the form to use in the preview and submission
+    const currentDate = useWatch({
+        control,
+        name: 'date',
+    });
 
-    // Reset login
+    // Reset logic
     useEffect(() => {
-        if (open) {
-            setErrorMsg(null);
-
-            // This 'reset' updates the form state without causing the "synchronous setState" error
-            reset({
-                date: initialDate,
-                startTime: '09:00',
-                endTime: '10:00',
-            });
-
-            // Reset local time UI states
-            setStartHour(9); setStartMinute(0); setStartPeriod('AM');
-            setEndHour(10); setEndMinute(0); setEndPeriod('AM');
-        }
-    }, [open, initialDate, reset]);
+        reset({
+            date: initialDate || new Date().toLocaleString().split('T')[0],
+            startTime: '09:00',
+            endTime: '10:00',
+        });
+    }, [initialDate, reset, open]);
 
     // Sync Hidden Fields (Same as before)
     useEffect(() => {
@@ -87,35 +94,37 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
         setValue('endTime', convertTo24Hour(endHour, endMinute, endPeriod));
     }, [endHour, endMinute, endPeriod, setValue]);
 
+    // Mutation for creating time slot
     const createMutation = useMutation({
         mutationFn: timeSlotService.create,
         onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: QUERY_KEYS.TIME_SLOTS.ALL});
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.ALL });
             onClose();
         },
         onError: (error: Error) => setErrorMsg(error.message)
     });
 
+    // Form Submission
     const onSubmit = (data: TimeSlotFormData) => {
-    // 1. Combine your separate inputs into a "Local Wall Clock" date
-    // User selected: "2026-01-21" and "09:00" (Vietnam Time)
-    const localStartStr = `${data.date}T${data.startTime}:00`;
-    const localEndStr = `${data.date}T${data.endTime}:00`;
+        // 1. Combine your separate inputs into a "Local Wall Clock" date
+        // User selected: "2026-01-21" and "09:00" (Vietnam Time)
+        const localStartStr = `${data.date}T${data.startTime}:00`;
+        const localEndStr = `${data.date}T${data.endTime}:00`;
 
-    // 2. Convert that "Wall Clock" time to a real JS Date object
-    const startObj = new Date(localStartStr); 
-    const endObj = new Date(localEndStr);
+        // 2. Convert that "Wall Clock" time to a real JS Date object
+        const startObj = new Date(localStartStr);
+        const endObj = new Date(localEndStr);
 
-    // 3. Convert to UTC ISO Strings (The Professional Standard)
-    // The .toISOString() method automatically subtracts 7 hours (for Vietnam)
-    // Result: "2026-01-21T02:00:00.000Z"
-    const payload = {
-        startTime: startObj.toISOString(),
-        endTime: endObj.toISOString(),
+        // 3. Convert to UTC ISO Strings (The Professional Standard)
+        // The .toISOString() method automatically subtracts 7 hours (for Vietnam)
+        // Result: "2026-01-21T02:00:00.000Z"
+        const payload = {
+            startTime: startObj.toISOString(),
+            endTime: endObj.toISOString(),
+        };
+
+        createMutation.mutate(payload);
     };
-
-    createMutation.mutate(payload);
-};
 
     // Constants
     const hours = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -148,10 +157,10 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
                     {/* Date Picker */}
                     <Box>
                         <Typography variant="subtitle2" gutterBottom>Date</Typography>
-                        {/* We use the value watched from the form */}
+                        {/*Date Filter Component*/}
                         <DateFilter
                             selectedDate={currentDate}
-                            onChange={(date) => setValue('date', date, { shouldValidate: true })}
+                            onChange={(date: string) => setValue('date', date)}
                             minDate={new Date().toISOString().split('T')[0]}
                         />
                     </Box>
@@ -160,7 +169,6 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
                     <Box>
                         <Typography variant="subtitle2" gutterBottom color="text.secondary">Start Time</Typography>
 
-                        {/* FIX 2: Using Grid2 Syntax (size instead of item/xs) */}
                         <Grid container spacing={1}>
                             <Grid size={4}>
                                 <FormControl fullWidth size="small">
@@ -195,7 +203,6 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
                     <Box>
                         <Typography variant="subtitle2" gutterBottom color="text.secondary">End Time</Typography>
 
-                        {/* FIX 2: Using Grid2 Syntax */}
                         <Grid container spacing={1}>
                             <Grid size={4}>
                                 <FormControl fullWidth size="small">

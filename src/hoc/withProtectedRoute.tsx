@@ -11,6 +11,12 @@ interface ProtectedRouteOptions {
     allowedRoles?: UserRole[];
 }
 
+/**
+ * Higher-order component to protect routes based on authentication and user roles.
+ * @param Component The component to be protected.
+ * @param options Options to specify allowed user roles.
+ * @returns A component that enforces authentication and role-based access control.
+ */
 export function withProtectedRoute<P extends object>(
     Component: React.ComponentType<P>,
     options: ProtectedRouteOptions = {}

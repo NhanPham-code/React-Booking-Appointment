@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Paper, CircularProgress, Popover, Stack, Typography, IconButton, Divider, Button, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Paper, CircularProgress, Popover, Stack, Typography, IconButton, Divider, Button, useTheme, useMediaQuery, Chip } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import LockIcon from '@mui/icons-material/Lock';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -16,33 +18,35 @@ import { EventClickArg } from '@fullcalendar/core';
 
 import { timeSlotService } from '@/src/services/timeSlotServices';
 import { QUERY_KEYS } from '@/src/constants/queryKey';
-import ConfirmDeleteDialog from './ConfirmDeleteDialog';
+import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog';
 import { ITimeSlot } from '@/src/models/timeSlot';
 
+// Extend ITimeSlot to include isPast property
 type TimeSlotWithStatus = ITimeSlot & { isPast: boolean };
 
-// --- HELPER: UTC to Calendar Event ---
+/**
+ * Transform TimeSlotWithStatus array to FullCalendar event objects.
+ * @param slots Array of time slots with status.
+ * @returns Array of FullCalendar event objects.
+ */
 const transformSlotsToEvents = (slots: TimeSlotWithStatus[]) => {
     return slots.map((slot) => {
         // Default: Available (Green)
         let bgColor = '#2e7d32';
         let borderColor = '#1b5e20';
-        let title = 'Available';
 
         // Logic: Past > Booked > Available
         if (slot.isPast) {
             bgColor = '#9e9e9e';      // Gray 500 (Disabled look)
             borderColor = '#757575';  // Gray 600
-            title = slot.isBooked ? 'Booked (Past)' : 'Expired';
         } else if (slot.isBooked) {
             bgColor = '#d32f2f';      // Red (Booked)
             borderColor = '#c62828';
-            title = 'Booked';
         }
 
         return {
             id: slot.id,
-            title: title,
+            title: slot.isBooked ? '🔒 Booked' : slot.isPast ? '⏰ Past' : '✅ Available',
             start: slot.startTime,
             end: slot.endTime,
             backgroundColor: bgColor,
@@ -53,12 +57,19 @@ const transformSlotsToEvents = (slots: TimeSlotWithStatus[]) => {
     });
 };
 
+
 interface TimeSlotCalendarProps {
     currentDate: Date; // Receive the shared date from DatePicker
-    onDateChange: (date: Date) => void; // Send date back to parent to update DatePicker
+    mode?:  'manage' | 'booking'; // mode of the calendar (manage: doctor, booking: patient)
+    onBookSlot?: (slot: ITimeSlot) => void; // Callback when patient clicks "Book"
 }
 
-export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlotCalendarProps) {
+/**
+ * Calendar component to display and manage time slots.
+ * @param props Component props.
+ * @returns JSX.Element
+ */
+export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookSlot }: TimeSlotCalendarProps) {
     const queryClient = useQueryClient();
 
     // State for Confirm Delete Dialog
@@ -69,22 +80,20 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
 
     // State for Popover (Edit, Delete)
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-    const [selectedSlot, setSelectedSlot] = useState<ITimeSlot | null>(null);
+    const [selectedSlot, setSelectedSlot] = useState<TimeSlotWithStatus | null>(null);
 
     // --- RESPONSIVE SETUP ---
     const theme = useTheme();
     // 'md' is usually 900px. Below this, we switch to mobile view.
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-    // Fetch Slots (By Range now, instead of single date)
+    // Fetch Slots
     const { data: slots = [], isFetching } = useQuery({
-        // Include range in queryKey so it refetches when you click "Next Week"
+        // Include range in queryKey so it re-fetches when you click "Next Week"
         queryKey: QUERY_KEYS.TIME_SLOTS.BY_RANGE(dateRange.start, dateRange.end),
         queryFn: () => timeSlotService.getSlotsByRange(dateRange.start, dateRange.end),
         // Only fetch if we have a valid range set
         enabled: !!dateRange.start,
-        // set to keep old data
-        //placeholderData: keepPreviousData, 
     });
 
     // Delete Logic
@@ -106,7 +115,7 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
         setAnchorEl(info.el);
 
         // Save the data of the clicked slot
-        setSelectedSlot(info.event.extendedProps as ITimeSlot);
+        setSelectedSlot(info.event.extendedProps as TimeSlotWithStatus);
     };
 
     // Handle Close Popover
@@ -129,13 +138,22 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
         }
     };
 
+    // Handle Book Click (for patient)
+    const handleBookClick = () => {
+        if (selectedSlot && onBookSlot) {
+            handleClosePopover();
+            onBookSlot(selectedSlot); // Call the callback to parent component to handle booking
+        }
+    };
+
     // change slots to events to display on calendar
     const calendarEvents = transformSlotsToEvents(slots);
 
     // popover open state
     const openPopover = Boolean(anchorEl);
 
-    // Create a Ref to control FullCalendar API
+    // Create a Ref to control FullCalendar instance in this component
+    // To allow jumping to dates when 'currentDate' changes
     const calendarRef = useRef<FullCalendar>(null);
     // When 'currentDate' prop changes (from Sidebar), jump to it on Calendar
     useEffect(() => {
@@ -143,9 +161,9 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
             const calendarApi = calendarRef.current.getApi();
             calendarApi.gotoDate(currentDate); // FORCE JUMP
         }
-    }, [currentDate]);
+    }, [currentDate]); // when currentDate prop changes from parent
 
-    // Responsive: Detect if mobile to switch view
+    // Responsive: Detect if mobile to switch view (calendarRef dependency to re-render on resize)
     useEffect(() => {
         if (calendarRef.current) {
             const calendarApi = calendarRef.current.getApi();
@@ -170,6 +188,20 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
                         <CircularProgress />
                     </Box>
                 )}
+
+                {/* --- Display Mode --- */}
+                <Box sx={{ mb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Chip 
+                        size="small"
+                        label={mode === 'manage' ? '🩺 Manage Mode' : '📅 Booking Mode'}
+                        color={mode === 'manage' ?  'primary' : 'secondary'}
+                    />
+                    <Stack direction="row" spacing={1}>
+                        <Chip size="small" label="Available" sx={{ bgcolor: '#4caf50', color: 'white' }} />
+                        <Chip size="small" label="Booked" sx={{ bgcolor: '#f44336', color: 'white' }} />
+                        <Chip size="small" label="Past" sx={{ bgcolor: '#9e9e9e', color: 'white' }} />
+                    </Stack>
+                </Box>
 
                 {/* --- SCROLLABLE CONTAINER --- */}
                 {/* 'auto' enables horizontal scrolling */}
@@ -204,11 +236,6 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
                                 const start = dateInfo.startStr;
                                 const end = dateInfo.endStr;
                                 setDateRange({ start, end });
-
-                                const midDate = new Date((dateInfo.start.getTime() + dateInfo.end.getTime()) / 2);
-                                if (midDate.toDateString() !== currentDate.toDateString()) {
-                                    onDateChange(midDate);
-                                }
                             }}
                         />
                     </Box>
@@ -220,43 +247,89 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
                 anchorEl={anchorEl}
                 onClose={handleClosePopover}
                 anchorOrigin={{ vertical: 'center', horizontal: 'center' }}
-                transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-                slotProps={{
-                    paper: {
-                        sx: { width: 300, p: 2, borderRadius: 2 }
-                    }
-                }}
+                transformOrigin={{ vertical:  'center', horizontal: 'left' }}
+                slotProps={{ paper: { sx: { width: 320, p: 2, borderRadius: 2 } } }}
             >
                 {selectedSlot && (
                     <Stack spacing={2}>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                             <Typography variant="h6" fontSize={16} fontWeight={600}>
-                                {selectedSlot.isBooked ? 'Booked Slot' : 'Available Slot'}
+                                {selectedSlot.isBooked ? '🔒 Booked Slot' : selectedSlot.isPast ? '⏰ Past Slot' : '✅ Available Slot'}
                             </Typography>
                             <IconButton size="small" onClick={handleClosePopover}>
                                 <CloseIcon fontSize="small" />
                             </IconButton>
                         </Box>
+                        
                         <Divider />
+                        
                         <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
                             <AccessTimeIcon fontSize="small" />
                             <Typography variant="body2">
-                                {new Date(selectedSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(selectedSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute:  '2-digit' })}
                                 {' - '}
                                 {new Date(selectedSlot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Typography>
                         </Stack>
+                        
                         <Typography variant="caption" color="text.secondary">
-                            Date: {selectedSlot.startTime.split("T").at(0)}
+                            📅 {new Date(selectedSlot.startTime).toLocaleDateString()}
                         </Typography>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end" mt={1}>
-                            <Button size="small" startIcon={<EditOutlinedIcon />} variant="outlined" onClick={() => alert("Edit feature coming soon!")}>
-                                Edit
-                            </Button>
-                            <Button size="small" startIcon={<DeleteOutlineIcon />} variant="outlined" color="error" onClick={handleDeleteClick}>
-                                Delete
-                            </Button>
-                        </Stack>
+
+                        {/* CONDITIONAL ACTIONS */}
+                        {mode === 'manage' ?  (
+                            // DOCTOR:  Edit & Delete
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" mt={1}>
+                                <Button 
+                                    size="small" 
+                                    startIcon={<EditOutlinedIcon />} 
+                                    variant="outlined"
+                                    disabled={selectedSlot.isBooked || selectedSlot.isPast}
+                                >
+                                    Edit
+                                </Button>
+                                <Button 
+                                    size="small" 
+                                    startIcon={<DeleteOutlineIcon />} 
+                                    variant="outlined" 
+                                    color="error" 
+                                    onClick={handleDeleteClick}
+                                    disabled={selectedSlot.isBooked} // Can't delete booked slots
+                                >
+                                    Delete
+                                </Button>
+                            </Stack>
+                        ) : (
+                            // PATIENT: Book This Slot
+                            <Box>
+                                {selectedSlot.isBooked ? (
+                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, bgcolor: 'error.50', borderRadius: 1 }}>
+                                        <LockIcon color="error" fontSize="small" />
+                                        <Typography variant="body2" color="error. main">
+                                            This slot is already booked
+                                        </Typography>
+                                    </Stack>
+                                ) : selectedSlot.isPast ? (
+                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+                                        <AccessTimeIcon color="disabled" fontSize="small" />
+                                        <Typography variant="body2" color="text.secondary">
+                                            This slot is in the past
+                                        </Typography>
+                                    </Stack>
+                                ) : (
+                                    <Button
+                                        fullWidth
+                                        variant="contained"
+                                        color="primary"
+                                        startIcon={<EventAvailableIcon />}
+                                        onClick={handleBookClick}
+                                        sx={{ mt: 1 }}
+                                    >
+                                        Book This Slot
+                                    </Button>
+                                )}
+                            </Box>
+                        )}
                     </Stack>
                 )}
             </Popover>
@@ -264,8 +337,10 @@ export default function TimeSlotCalendar({ currentDate, onDateChange }: TimeSlot
             <ConfirmDeleteDialog
                 open={!!deleteId}
                 onClose={() => setDeleteId(null)}
-                onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+                onConfirm={() => deleteId && deleteMutation.mutate(deleteId)} // call delete mutation
                 loading={deleteMutation.isPending}
+                title="Delete Time Slot"
+                message="Are you sure you want to delete this time slot? This action cannot be undone."
             />
         </Box>
     );

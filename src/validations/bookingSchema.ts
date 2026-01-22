@@ -9,11 +9,6 @@ export const bookingSchema = yup.object({
         . string()
         .required('Please enter phone number')
         .matches(/^[0-9]+$/, 'Invalid phone number'),
-    timeSlotIds: yup
-        .array()
-        .of(yup.string().required())
-        .min(1, 'Please select at least one time slot')
-        .required('Please select at least one time slot'),
     notes: yup
         .string()
         .default('')

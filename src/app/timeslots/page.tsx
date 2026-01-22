@@ -17,6 +17,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import TimeSlotCalendar from '@/src/components/timeslots/TimeSlotCalendar';
 import CreateSlotDialog from '@/src/components/timeslots/CreateSlotDialog';
 
+/**
+ * TimeSlotsPage component for managing and viewing time slots.
+ * @returns JSX.Element
+ */
 function TimeSlotsPage() {
     // Lift Date State Up
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -33,22 +37,19 @@ function TimeSlotsPage() {
                     <Box sx={{ mb: 2 }}>
                         <PageHeader
                             title="Schedule Management"
-                            subtitle="View and manage your appointments"
                         />
                     </Box>
 
                     <Grid container spacing={2}>
                         
                         {/* --- LEFT SIDEBAR: REACT DATE PICKER --- */}
-                        <Grid  size={{ xs: 12, md: 3 ,lg: 2.5 }}>
+                        <Grid  size={{ xs: 12, md: 4 ,lg: 3 }}>
                             <Paper elevation={2} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'white' }}>
                                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5, px: 1 }}>
                                     Jump to Date
                                 </Typography>
                                 
-                                {/* We wrap it in a Box to override styles slightly 
-                                    to make it fit the MUI theme better 
-                                */}
+                                {/* We wrap it in a Box to override styles slightly to make it fit the MUI theme better */}
                                 <Box sx={{ 
                                     '& .react-datepicker': {
                                         border: 'none',
@@ -95,10 +96,10 @@ function TimeSlotsPage() {
                         </Grid>
 
                         {/* --- RIGHT CONTENT (Main Calendar) --- */}
-                        <Grid size={{ xs: 12, md: 9 ,lg: 9.5 }}>
+                        <Grid size={{ xs: 12, md: 8 ,lg: 9 }}>
                             <TimeSlotCalendar 
                                 currentDate={currentDate}
-                                onDateChange={setCurrentDate}
+                                mode="manage"
                             />
                         </Grid>
 
