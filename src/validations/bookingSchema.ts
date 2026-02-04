@@ -2,13 +2,9 @@
 import * as yup from 'yup';
 
 export const bookingSchema = yup.object({
-    customerName:  yup
+    customerName: yup
         .string()
         .required('Please enter customer name'),
-    phoneNumber:  yup
-        . string()
-        .required('Please enter phone number')
-        .matches(/^[0-9]+$/, 'Invalid phone number'),
     notes: yup
         .string()
         .default('')

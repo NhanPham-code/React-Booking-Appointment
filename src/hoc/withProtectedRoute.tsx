@@ -5,6 +5,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
 import { UserRole } from '@/src/models/authentication';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 // PROTECT ROUTE PAGE (Authen, Role)
 interface ProtectedRouteOptions {
@@ -26,14 +27,23 @@ export function withProtectedRoute<P extends object>(
         const router = useRouter();
         const { allowedRoles } = options;
 
+        // check authentication and authorization
+        useEffect(() => {
+            if (!isAuthenticated) {
+                console.log('🚫 [withProtectedRoute] Not authenticated, redirecting to /login');
+                router.push('/login');
+            }
+        }, [isAuthenticated, router]);
+        
+
         // loading
         if (isLoading) {
             console.log('⏳ [withProtectedRoute] Loading...');
             return (
-                <Box sx={{ 
-                    display: 'flex', 
-                    minHeight: '100vh', 
-                    alignItems: 'center', 
+                <Box sx={{
+                    display: 'flex',
+                    minHeight: '100vh',
+                    alignItems: 'center',
                     justifyContent: 'center',
                     flexDirection: 'column',
                     gap: 2
@@ -46,42 +56,13 @@ export function withProtectedRoute<P extends object>(
             );
         }
 
-        // not authenticated
-        if (!isAuthenticated || !user) {
-            console.log('🚫 [withProtectedRoute] Not authenticated, should redirect to /login');
-            return (
-                <Box sx={{ 
-                    display: 'flex', 
-                    minHeight: '100vh', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 2,
-                    p: 3
-                }}>
-                    <CircularProgress />
-                    <Typography variant="h6">Redirecting to login...</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        You need to login first
-                    </Typography>
-                    <Button 
-                        variant="contained" 
-                        onClick={() => router.push('/login')}
-                    >
-                        Go to Login
-                    </Button>
-                </Box>
-            );
-        }
-
         // check role authorization
-        if (allowedRoles && !allowedRoles.includes(user.role)) {
-            console.log('⛔ [withProtectedRoute] Access denied. User role:', user.role, 'Required:', allowedRoles);
+        if (user && allowedRoles && !allowedRoles.includes(user.role)) {
             return (
-                <Box sx={{ 
-                    display: 'flex', 
-                    minHeight: '100vh', 
-                    alignItems: 'center', 
+                <Box sx={{
+                    display: 'flex',
+                    minHeight: '100vh',
+                    alignItems: 'center',
                     justifyContent: 'center',
                     flexDirection: 'column',
                     gap: 2,
@@ -98,8 +79,8 @@ export function withProtectedRoute<P extends object>(
                     <Typography variant="body2" color="text.secondary">
                         Required roles: {allowedRoles.join(', ')}
                     </Typography>
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         onClick={() => router.push('/')}
                         sx={{ mt: 2 }}
                     >

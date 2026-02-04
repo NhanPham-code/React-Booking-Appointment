@@ -1,43 +1,58 @@
-import { UserWithoutPassword } from '@/src/models/authentication';
-import { MOCK_USERS } from '@/src/data/mockUsers';
+import { AuthResponse, IUser } from '@/src/models/authentication';
 import { LoginFormData } from '../validations/loginSchema';
 import Cookies from 'js-cookie';
-import { COOKIE_USER_KEY } from '../constants/cookieKey';
+import { COOKIE_ACCESS_TOKEN, COOKIE_USER_KEY } from '../constants/cookieKey';
+import httpClient from '../utils/httpClient';
+import { API_ENDPOINTS } from '../constants/api';
 
 export const authService = {
 
-    async login(credentials: LoginFormData): Promise<UserWithoutPassword | null> {
+    login: async (credentials: LoginFormData): Promise<IUser | null> => {
 
-        const user = MOCK_USERS.find(
-            u => u.username === credentials.username && u.password === credentials.password
-        );
+        const login_url = API_ENDPOINTS.AUTHENTICATION + "/login"
 
-        if (!user) return null;
+        const formData = new URLSearchParams();
+        formData.append('username', credentials.username);
+        formData.append('password', credentials.password);
 
-        const userWithoutPassword: UserWithoutPassword = {
-            id: user.id,
-            username: user.username,
-            role: user.role,
-            fullName: user.fullName,
-            email: user.email,
-        };
+        const response = await httpClient.post<AuthResponse>(login_url, formData, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
 
-        this.saveSession(userWithoutPassword);
+        const result = response.data
+        if (!result) return null;
 
-        return userWithoutPassword;
+        const user = result.user || result;
+        const token = result.access_token;
+
+        authService.saveSession(user, token);
+        return user;
     },
 
-    async logout(): Promise<void> {
+    logout: async (): Promise<void> => {
         // Xóa session
         Cookies.remove(COOKIE_USER_KEY);
+        Cookies.remove(COOKIE_ACCESS_TOKEN);
     },
 
-    saveSession(user: UserWithoutPassword) {
-        Cookies.set(COOKIE_USER_KEY, JSON.stringify(user), { expires: 7 });
+    saveSession: (user: IUser, token: string) => {
+        Cookies.set(COOKIE_USER_KEY, JSON.stringify(user), { expires: 7, sameSite: 'Lax', secure: true });
+        Cookies.set(COOKIE_ACCESS_TOKEN, token, { expires: 7, sameSite: 'Lax', secure: true });
     },
 
-    getSession(): UserWithoutPassword | null {
+    clearSession: () => {
+        Cookies.remove(COOKIE_USER_KEY);
+        Cookies.remove(COOKIE_ACCESS_TOKEN);
+    },
+
+    getUserFromSession: (): IUser | null => {
         const data = Cookies.get(COOKIE_USER_KEY);
         return data ? JSON.parse(data) : null;
+    },
+
+    getAccessTokenFromSession: (): string | null => {
+        return Cookies.get(COOKIE_ACCESS_TOKEN) || null;
     }
 };

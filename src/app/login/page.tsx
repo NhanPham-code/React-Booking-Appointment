@@ -25,7 +25,9 @@ import { useAuth } from '@/src/context/AuthContext'; // Import useAuth from Auth
 import Link from 'next/link';
 import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
+import { useDispatch } from 'react-redux';
+import { setUser } from '@/src/store/slices/authSlice';
+import { authService } from '@/src/services/authService';
 /**
  * Login page component
  * @returns JSX.Element
@@ -33,6 +35,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 export default function LoginPage() {
     // useAuth CONTEXT for authentication
     const { login } = useAuth();
+    // const dispatch = useDispatch();
     const [error, setError] = React.useState<string | null>(null);
 
     const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
@@ -51,6 +54,10 @@ export default function LoginPage() {
             // Call login function from useAuth context
             await login(data);
 
+            // const user = await authService.login(data);
+            // if (user) {
+            //     dispatch(setUser(user));
+            // }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
         }

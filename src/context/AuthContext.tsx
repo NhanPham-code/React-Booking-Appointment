@@ -3,13 +3,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/src/services/authService';
-import { UserWithoutPassword } from '@/src/models/authentication';
+import { IUser } from '@/src/models/authentication';
 import { LoginFormData } from '../validations/loginSchema';
 import { CircularProgress, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 
 interface AuthContextType {
-    user: UserWithoutPassword | null;
+    user: IUser | null;
+    accessToken: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (credentials: LoginFormData) => Promise<void>;
@@ -21,16 +24,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component to wrap the app and provide auth context
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<UserWithoutPassword | null>(null);
+    const [user, setUser] = useState<IUser | null>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+
+    const queryClient = useQueryClient();
 
     // check login session
     useEffect(() => {
         const initAuth = async () => {
-            const storedUser = authService.getSession();
+            const storedUser = authService.getUserFromSession();
+            const storedToken = authService.getAccessTokenFromSession();
             if (storedUser) {
                 setUser(storedUser);
+            }
+            if (storedToken) {
+                setAccessToken(storedToken);
             }
             setIsLoading(false);
         };
@@ -39,22 +49,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check login function and update state
     const login = async (credentials: LoginFormData) => {
-        // get user data
-        const user = await authService.login(credentials);
-        
-        if (user) {
-            // update state to trigger update UI
+        try {
+            const user = await authService.login(credentials);
+
+            if (!user) {
+                throw new Error("No user data returned");
+            }
+
             setUser(user);
+            setAccessToken(authService.getAccessTokenFromSession());
             router.push('/');
-            return; 
-        } else {
-            throw new Error('Login failed');
+        } catch (error) {
+            if (error instanceof AxiosError && error.response?.status === 401) {
+                throw new Error('Invalid username or password');
+            }
+            else {
+                throw new Error('Login failed');
+            }
         }
     };
 
     const logout = async () => {
         await authService.logout();
+        queryClient.clear(); // Clear react-query cache
         setUser(null); // Reset state to null
+        setAccessToken(null);
         router.push('/');
     };
 
@@ -68,9 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // PROVIDE DATA TO THE ENTIRE APP
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            isAuthenticated: !!user, 
+        <AuthContext.Provider value={{
+            user,
+            accessToken,
+            isAuthenticated: user !== null && user !== undefined,
             isLoading,
             login,  // Export login function
             logout  // Export logout function

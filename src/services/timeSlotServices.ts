@@ -3,41 +3,58 @@ import { API_ENDPOINTS } from '@/src/constants/api';
 import { ITimeSlot, CreateTimeSlotDTO } from '@/src/models/timeSlot';
 import { isBefore } from 'date-fns';
 
+const getClientTimeZone = (): string => {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
 export const timeSlotService = {
 
-    async getAll(): Promise<ITimeSlot[]> {
+    getAll: async (): Promise<ITimeSlot[]> => {
         const response = await httpClient.get<ITimeSlot[]>(API_ENDPOINTS.TIME_SLOT);
         return response.data;
     },
 
-    async getByDate(date: string): Promise<ITimeSlot[]> {
+    getByDate: async (doctorId: number | undefined, date: string): Promise<ITimeSlot[]> => {
+        if (!doctorId) return [];
         try {
-            const response = await httpClient.get<ITimeSlot[]>(API_ENDPOINTS.TIME_SLOT);
-            return response.data.filter(slot => slot.startTime.startsWith(date));
+            const timeZone = getClientTimeZone();
+            // encodeURIComponent để xử lý ký tự "/" trong timezone (Asia/Ho_Chi_Minh)
+            const encodedTz = encodeURIComponent(timeZone);
+
+            // URL: /doctor/{id}/time_zone/{tz}/date/{date}
+            const url = API_ENDPOINTS.TIME_SLOT + `/doctor/${doctorId}/time_zone/${encodedTz}?date=${date}`;
+
+            const response = await httpClient.get<ITimeSlot[]>(url);
+            return response.data;
+            // Không cần filter client-side nữa, Backend đã trả về chuẩn xác
         } catch (error) {
             console.error('Error fetching time slots by date:', error);
             return [];
         }
     },
 
-    // Get Slots by Range (The "Professional" Way)
-    async getSlotsByRange(startDate: string, endDate: string): Promise<(ITimeSlot & { isPast: boolean })[]> {
+    // Get Slots by Range
+    getSlotsByRange: async (doctorId: number | undefined, startDate: string, endDate: string): Promise<(ITimeSlot & { isPast: boolean })[]> => {
+
+        if (!doctorId) return [];
+
         const now = new Date();
 
         try {
-            const response = await httpClient.get<ITimeSlot[]>(API_ENDPOINTS.TIME_SLOT);
+            const timeZone = getClientTimeZone();
+            const encodedTz = encodeURIComponent(timeZone);
+
+            const formattedStart = startDate.split('T')[0];
+            const formattedEnd = endDate.split('T')[0];
+
+            // URL: /doctor/{id}/time_zone/{tz}/slots?startDate={startDate}&endDate={endDate}
+            const url = API_ENDPOINTS.TIME_SLOT + `/doctor/${doctorId}/time_zone/${encodedTz}?start_date=${formattedStart}&end_date=${formattedEnd}`;
+
+            const response = await httpClient.get<ITimeSlot[]>(url);
 
             return response.data
-                .filter(slot => {
-                    // slot.startTime is "2026-01-21T02:00:00.000Z"
-                    // startDate is "2026-01-19"
-                    // We simply check if the ISO string starts with the date or is greater
-                    // A simple string comparison works well for ISO dates
-                    return slot.startTime >= startDate && slot.startTime <= endDate; 
-                })
                 .map(slot => {
-                    // Simple "isPast" check using the ISO string directly
-                    const slotDateObj = new Date(slot.endTime); 
+                    const slotDateObj = new Date(slot.startTime); // Dùng startTime
                     return {
                         ...slot,
                         isPast: isBefore(slotDateObj, now)
@@ -51,9 +68,8 @@ export const timeSlotService = {
         }
     },
 
-    // Create (UTC Logic)
-    // Note: The UI has already converted the input to UTC ISO strings before calling this.
-    async create(data: CreateTimeSlotDTO): Promise<ITimeSlot> {
+    // Create (Send UTC ISO Strings)
+    create: async (data: CreateTimeSlotDTO): Promise<ITimeSlot> => {
         const now = new Date();
         const slotDateObj = new Date(data.startTime); // It's already an ISO string
 
@@ -70,22 +86,22 @@ export const timeSlotService = {
         return response.data;
     },
 
-    async delete(id: string): Promise<void> {
+    delete: async (id: number, doctorId: number | undefined): Promise<void> => {
         await httpClient.delete(`${API_ENDPOINTS.TIME_SLOT}/${id}`);
     },
 
-    async markAsBooked(id: string): Promise<ITimeSlot> {
+    markAsBooked: async (id: number): Promise<ITimeSlot> => {
         const response = await httpClient.put<ITimeSlot>(
             `${API_ENDPOINTS.TIME_SLOT}/${id}`,
-            { isBooked: true }
+            { is_booked: true }
         );
         return response.data;
     },
 
-    async markAsAvailable(id: string): Promise<ITimeSlot> {
+    markAsAvailable: async (id: number): Promise<ITimeSlot> => {
         const response = await httpClient.put<ITimeSlot>(
             `${API_ENDPOINTS.TIME_SLOT}/${id}`,
-            { isBooked: false }
+            { is_booked: false }
         );
         return response.data;
     }

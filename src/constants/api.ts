@@ -1,4 +1,6 @@
 export const API_ENDPOINTS = {
-    BOOKING: '/Booking',
-    TIME_SLOT: '/TimeSlot',
-}
+    AUTHENTICATION: '/authn',
+    BOOKING: '/bookings',
+    TIME_SLOT: '/slots',
+    USERS: '/users',
+}       

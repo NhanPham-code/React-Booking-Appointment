@@ -16,24 +16,22 @@ import HistoryIcon from '@mui/icons-material/History';
 import { useAuth } from '@/src/context/AuthContext';
 import LoginIcon from '@mui/icons-material/Login';
 
+
+const navItems = [
+    { label: 'Home', path: '/' },
+    { label: 'Select Doctor', path: '/doctors', roles: ['patient'] },
+    { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] },
+];
+
 export default function Navbar() {
     const router = useRouter();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = React.useState(false);
 
-    // OBSERVER: This component listens to AuthContext to update UI
     const { user, isAuthenticated, logout } = useAuth();
 
-    // State for User Dropdown Menu
     const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
 
-    const navItems = [
-        { label: 'Home', path: '/' },
-        { label: 'Book Appointment', path: '/booking', roles: ['patient'] }, // Only patient
-        { label: 'Manage Time Slots', path: '/timeslots', roles: ['doctor'] }, // Only doctor
-    ];
-
-    // Then in the render, filter by role
     const visibleNavItems = navItems.filter(item => {
         if (!item.roles) return true;
         if (!user) return false;
@@ -79,14 +77,14 @@ export default function Navbar() {
                             <Tooltip title="Open settings">
                                 <IconButton sx={{ p: 0 }}>
                                     <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                                        {user.fullName?.charAt(0).toUpperCase()}
+                                        {user.fullname?.charAt(0).toUpperCase()}
                                     </Avatar>
                                 </IconButton>
                             </Tooltip>
                         </Box>
                         <Box>
                             <Typography variant="subtitle1" fontWeight={700}>
-                                {user.fullName}
+                                {user.fullname}
                             </Typography>
                         </Box>
                     </>
@@ -230,11 +228,12 @@ export default function Navbar() {
                         <Box sx={{ flexGrow: 0, display: { xs: 'none', md: 'flex' } }}>
                             {isAuthenticated && user ? (
                                 <>
+                                    {console.log(user)}
                                     {/* Avatar (Clickable) */}
                                     <Tooltip title="Open settings">
                                         <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                                             <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                                                {user.fullName?.charAt(0).toUpperCase()}
+                                                {user.fullname?.charAt(0).toUpperCase()}
                                             </Avatar>
                                         </IconButton>
                                     </Tooltip>
@@ -252,7 +251,7 @@ export default function Navbar() {
                                     >
                                         <Box sx={{ px: 2, py: 1 }}>
                                             <Typography variant="subtitle2" fontWeight={700}>
-                                                {user.fullName}
+                                                {user.fullname}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
                                                 {user.role.toUpperCase()}

@@ -16,7 +16,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { timeSlotService } from '@/src/services/timeSlotServices';
 import { timeSlotSchema, TimeSlotFormData } from '@/src/validations/timeSlotSchema';
 import { QUERY_KEYS } from '@/src/constants/queryKey';
-import DateFilter from '../common/DateFilter';
+import DateFilter from '../../common/DateFilter';
+import { CreateTimeSlotDTO } from '@/src/models/timeSlot';
+import { AxiosError } from "axios";
+import { toast } from 'react-toastify';
 
 /**
  * Convert 12-hour time to 24-hour time string.
@@ -32,6 +35,7 @@ function convertTo24Hour(hour: number, minute: number, period: 'AM' | 'PM'): str
     return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 }
 
+
 /**
  * CreateSlotDialog component for adding new time slots.
  */
@@ -39,6 +43,7 @@ interface CreateSlotDialogProps {
     open: boolean; // Whether the dialog is open.
     onClose: () => void; // Function to close the dialog.
     initialDate: string | undefined; // Initial date for the time slot in 'YYYY-MM-DD' format.
+    doctorId: number | undefined; // ID of the doctor creating the slot.
 }
 
 /**
@@ -46,11 +51,11 @@ interface CreateSlotDialogProps {
  * @param props Component props.
  * @returns JSX.Element
  */
-export default function CreateSlotDialog({ open, onClose, initialDate }: CreateSlotDialogProps) {
+export default function CreateSlotDialog({ open, onClose, initialDate, doctorId }: CreateSlotDialogProps) {
     const queryClient = useQueryClient();
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-    // Manual Time States (These are fine to keep separate for UI convenience)
+    // Manual Time States
     const [startHour, setStartHour] = React.useState(9);
     const [startMinute, setStartMinute] = React.useState(0);
     const [startPeriod, setStartPeriod] = React.useState<'AM' | 'PM'>('AM');
@@ -59,10 +64,10 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
     const [endMinute, setEndMinute] = React.useState(0);
     const [endPeriod, setEndPeriod] = React.useState<'AM' | 'PM'>('AM');
 
-    // FIX 1: Removed manual `selectedDate` state. 
-    // We now use `watch` and `reset` from useForm.
+
     const { control, handleSubmit, setValue, reset, formState: { errors } } = useForm<TimeSlotFormData>({
         resolver: yupResolver(timeSlotSchema),
+        mode: 'onChange', // check validate every data change
         defaultValues: {
             date: initialDate,
             startTime: '09:00',
@@ -70,63 +75,80 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
         }
     });
 
-    // Watching the date field directly from the form to use in the preview and submission
-    const currentDate = useWatch({
+    // Watching the date field directly from the form to use in the preview and submission and DateFilter
+    const selectedDate = useWatch({
         control,
         name: 'date',
     });
 
-    // Reset logic
+    // Reset form
     useEffect(() => {
         reset({
-            date: initialDate || new Date().toLocaleString().split('T')[0],
-            startTime: '09:00',
-            endTime: '10:00',
+            date: initialDate || new Date().toISOString().split('T')[0],
+            startTime: convertTo24Hour(startHour, startMinute, startPeriod),
+            endTime: convertTo24Hour(endHour, endMinute, endPeriod),
         });
+        setErrorMsg(null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialDate, reset, open]);
 
-    // Sync Hidden Fields (Same as before)
+    // Sync time input to form values
     useEffect(() => {
-        setValue('startTime', convertTo24Hour(startHour, startMinute, startPeriod));
+        // set data to form state with shouldValidate to trigger validate schema
+        setValue('startTime', convertTo24Hour(startHour, startMinute, startPeriod), { shouldValidate: true });
     }, [startHour, startMinute, startPeriod, setValue]);
 
     useEffect(() => {
-        setValue('endTime', convertTo24Hour(endHour, endMinute, endPeriod));
+        setValue('endTime', convertTo24Hour(endHour, endMinute, endPeriod), { shouldValidate: true });
     }, [endHour, endMinute, endPeriod, setValue]);
 
     // Mutation for creating time slot
     const createMutation = useMutation({
-        mutationFn: timeSlotService.create,
+        mutationFn: async (data: CreateTimeSlotDTO) => await timeSlotService.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.ALL });
             onClose();
+            toast.success("Create new time slot success")
         },
-        onError: (error: Error) => setErrorMsg(error.message)
+        onError: (error: Error) => {
+            const axiosError = error as AxiosError<{ detail: string }>;
+            const detail = axiosError.response?.data?.detail;
+
+            let errorMessage = detail || 'Failed to create time slot. Please try again.';
+            if (Array.isArray(detail)) {
+                errorMessage = detail[0]?.msg || errorMessage;
+            } else if (typeof detail === 'string') {
+                errorMessage = detail;
+            }
+
+            setErrorMsg(errorMessage);
+            toast.error(errorMessage);
+
+            console.log("Create Time Slot error:", axiosError.response?.data);
+        }
     });
 
     // Form Submission
     const onSubmit = (data: TimeSlotFormData) => {
-        // 1. Combine your separate inputs into a "Local Wall Clock" date
+        // Combine your separate inputs into a "Local Wall Clock" date
         // User selected: "2026-01-21" and "09:00" (Vietnam Time)
         const localStartStr = `${data.date}T${data.startTime}:00`;
         const localEndStr = `${data.date}T${data.endTime}:00`;
 
-        // 2. Convert that "Wall Clock" time to a real JS Date object
+        // Convert that "Wall Clock" time to a real JS Date object
         const startObj = new Date(localStartStr);
         const endObj = new Date(localEndStr);
 
-        // 3. Convert to UTC ISO Strings (The Professional Standard)
-        // The .toISOString() method automatically subtracts 7 hours (for Vietnam)
-        // Result: "2026-01-21T02:00:00.000Z"
-        const payload = {
+        const createTimeSlotDTO = {
             startTime: startObj.toISOString(),
             endTime: endObj.toISOString(),
-        };
+            doctor_id: doctorId
+        }
 
-        createMutation.mutate(payload);
+        createMutation.mutate(createTimeSlotDTO);
     };
 
-    // Constants
+    // Setup for hours and minutes options
     const hours = Array.from({ length: 12 }, (_, i) => i + 1);
     const minutes = [0, 30];
 
@@ -159,7 +181,7 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
                         <Typography variant="subtitle2" gutterBottom>Date</Typography>
                         {/*Date Filter Component*/}
                         <DateFilter
-                            selectedDate={currentDate}
+                            selectedDate={selectedDate}
                             onChange={(date: string) => setValue('date', date)}
                             minDate={new Date().toISOString().split('T')[0]}
                         />
@@ -239,7 +261,7 @@ export default function CreateSlotDialog({ open, onClose, initialDate }: CreateS
                             Preview
                         </Typography>
                         <Typography variant="body2" fontWeight={600} color="primary.main">
-                            {currentDate} • {convertTo24Hour(startHour, startMinute, startPeriod)} - {convertTo24Hour(endHour, endMinute, endPeriod)}
+                            {selectedDate} • {convertTo24Hour(startHour, startMinute, startPeriod)} - {convertTo24Hour(endHour, endMinute, endPeriod)}
                         </Typography>
                     </Box>
                 </Stack>

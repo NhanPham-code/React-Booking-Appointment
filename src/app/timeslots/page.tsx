@@ -14,8 +14,10 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
 // Components
-import TimeSlotCalendar from '@/src/components/timeslots/TimeSlotCalendar';
-import CreateSlotDialog from '@/src/components/timeslots/CreateSlotDialog';
+import TimeSlotCalendar from '@/src/components/calendar/timeslots/TimeSlotCalendar';
+import CreateSlotDialog from '@/src/components/dialog/timeslots/CreateSlotDialog';
+
+import { useAuth } from '@/src/context/AuthContext';
 
 /**
  * TimeSlotsPage component for managing and viewing time slots.
@@ -28,11 +30,14 @@ function TimeSlotsPage() {
     // Modal States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+    // get doctor id
+    const doctorId = useAuth().user?.id;
+
     return (
         <>
             <Navbar />
             <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 4 }}>
-                <Container maxWidth={false} sx={{ py: 1, px: { xs: 2, md: 4 }}}>
+                <Container maxWidth={false} sx={{ py: 1, px: { xs: 2, md: 4 } }}>
 
                     <Box sx={{ mb: 2 }}>
                         <PageHeader
@@ -41,44 +46,51 @@ function TimeSlotsPage() {
                     </Box>
 
                     <Grid container spacing={2}>
-                        
-                        {/* LEFT SIDEBAR: REACT DATE PICKER */}
-                        <Grid  size={{ xs: 12, md: 4 ,lg: 3 }}>
+                        <Grid size={{ xs: 12, md: 4, lg: 3 }}>
                             <Paper elevation={2} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'white' }}>
                                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5, px: 1 }}>
                                     Jump to Date
                                 </Typography>
-                                
-                                <Box sx={{ 
+
+                                <Box sx={{
                                     '& .react-datepicker': {
                                         border: 'none',
                                         fontFamily: 'inherit',
                                         width: '100%',
-                                        display: 'block'
                                     },
-                                    '& .react-datepicker__month-container': {
-                                        width: '100%',
-                                        float: 'none'
-                                    },
-                                    '& .react-datepicker__day-name, & .react-datepicker__day': {
-                                        width: '2rem',
-                                        lineHeight: '2rem',
-                                        margin: '0.1rem'
-                                    },
+                                    '& .react-datepicker__month-container': { width: '100%' },
                                     '& .react-datepicker__header': {
-                                        bgcolor: 'primary.light',
+                                        bgcolor: 'plum',
                                         borderBottom: 'none',
-                                        opacity: 0.9,
                                         pt: 1
                                     },
                                     '& .react-datepicker__current-month': {
-                                        color: 'white',
-                                        fontSize: '0.9rem',
-                                        marginBottom: '5px'
+                                        color: 'text.primary',
+                                        fontWeight: 700,
+                                        fontSize: '1rem',
+                                        mb: 1
+                                    },
+                                    '& .react-datepicker__day-name': { color: 'text.secondary' },
+                                    '& .react-datepicker__day': {
+                                        borderRadius: '8px',
+                                        fontWeight: 500,
+                                        '&:hover': { bgcolor: 'primary.light', color: 'primary.contrastText' }
                                     },
                                     '& .react-datepicker__day--selected': {
                                         backgroundColor: 'primary.main',
-                                        borderRadius: '50%'
+                                        color: 'white',
+                                        fontWeight: 700
+                                    },
+                                    '& .react-datepicker__day--keyboard-selected': {
+                                        backgroundColor: 'primary.light',
+                                        color: 'white'
+                                    },
+                                    '& .react-datepicker__day--today': {
+                                        border: '1px solid',
+                                        borderColor: 'primary.main',
+                                        color: 'primary.main',
+                                        fontWeight: 'bold',
+                                        backgroundColor: 'transparent'
                                     },
                                     display: 'flex',
                                     justifyContent: 'center'
@@ -94,21 +106,22 @@ function TimeSlotsPage() {
                             </Paper>
                         </Grid>
 
-                        {/* RIGHT CONTENT: Calendar (Manage Mode) */}
-                        <Grid size={{ xs: 12, md: 8 ,lg: 9 }}>
-                            <TimeSlotCalendar 
-                                currentDate={currentDate}
-                                mode="manage"
-                            />
+                        <Grid size={{ xs: 12, md: 8, lg: 9 }}>
+                            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'grey.200', minHeight: '400px' }}>
+                                <TimeSlotCalendar
+                                    currentDate={currentDate}
+                                    mode="manage"
+                                    userId={doctorId}
+                                />
+                            </Paper>
                         </Grid>
-
                     </Grid>
                 </Container>
 
                 {/* Floating Action Button for Create */}
                 <Tooltip title="Add Time Slot" placement="left">
-                    <Fab 
-                        color="primary" 
+                    <Fab
+                        color="primary"
                         aria-label="add"
                         sx={{ position: 'fixed', bottom: 24, right: 24 }}
                         onClick={() => setIsCreateOpen(true)}
@@ -118,10 +131,11 @@ function TimeSlotsPage() {
                 </Tooltip>
 
                 {/* Create Popup Form */}
-                <CreateSlotDialog 
+                <CreateSlotDialog
                     open={isCreateOpen}
                     onClose={() => setIsCreateOpen(false)}
                     initialDate={dayjs(currentDate).format('YYYY-MM-DD')}
+                    doctorId={doctorId}
                 />
             </Box>
         </>

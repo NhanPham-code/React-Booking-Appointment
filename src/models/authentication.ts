@@ -2,13 +2,19 @@
 
 export type UserRole = 'doctor' | 'patient';
 
+
 export interface IUser {
-    id: string;
+    id: number;
     username: string;
-    password: string;
     role: UserRole;
-    fullName: string;
+    fullname: string;
     email?: string;
+    phone?: string;
 }
 
-export type UserWithoutPassword = Omit<IUser, "password">;
+export interface AuthResponse {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    user: IUser;
+}

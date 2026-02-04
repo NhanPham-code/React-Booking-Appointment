@@ -5,10 +5,10 @@ import { Box, Paper, CircularProgress, Popover, Stack, Typography, IconButton, D
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+// import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LockIcon from '@mui/icons-material/Lock';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -18,8 +18,10 @@ import { EventClickArg } from '@fullcalendar/core';
 
 import { timeSlotService } from '@/src/services/timeSlotServices';
 import { QUERY_KEYS } from '@/src/constants/queryKey';
-import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog';
+import ConfirmDeleteDialog from '../../common/ConfirmDeleteDialog';
 import { ITimeSlot } from '@/src/models/timeSlot';
+import { AxiosError } from 'axios';
+import { toast } from 'react-toastify';
 
 // Extend ITimeSlot to include isPast property
 type TimeSlotWithStatus = ITimeSlot & { isPast: boolean };
@@ -39,14 +41,14 @@ const transformSlotsToEvents = (slots: TimeSlotWithStatus[]) => {
         if (slot.isPast) {
             bgColor = '#9e9e9e';      // Gray 500 (Disabled look)
             borderColor = '#757575';  // Gray 600
-        } else if (slot.isBooked) {
+        } else if (slot.is_booked) {
             bgColor = '#d32f2f';      // Red (Booked)
             borderColor = '#c62828';
         }
 
         return {
-            id: slot.id,
-            title: slot.isBooked ? '🔒 Booked' : slot.isPast ? '⏰ Past' : '✅ Available',
+            id: String(slot.id),
+            title: slot.is_booked ? '🔒 Booked' : slot.isPast ? '⏰ Past' : '✅ Available',
             start: slot.startTime,
             end: slot.endTime,
             backgroundColor: bgColor,
@@ -60,7 +62,8 @@ const transformSlotsToEvents = (slots: TimeSlotWithStatus[]) => {
 
 interface TimeSlotCalendarProps {
     currentDate: Date; // Receive the shared date from DatePicker
-    mode?:  'manage' | 'booking'; // mode of the calendar (manage: doctor, booking: patient)
+    mode?: 'manage' | 'booking'; // mode of the calendar (manage: doctor, booking: patient)
+    userId: number | undefined; // ID of the current user (doctor or patient)
     onBookSlot?: (slot: ITimeSlot) => void; // Callback when patient clicks "Book"
 }
 
@@ -69,11 +72,11 @@ interface TimeSlotCalendarProps {
  * @param props Component props.
  * @returns JSX.Element
  */
-export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookSlot }: TimeSlotCalendarProps) {
+export default function TimeSlotCalendar({ currentDate, mode = 'manage', userId, onBookSlot }: TimeSlotCalendarProps) {
     const queryClient = useQueryClient();
 
     // State for Confirm Delete Dialog
-    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
 
     // Track the visible range (Start/End date of the current view) state for change week
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -84,25 +87,43 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
 
     // --- RESPONSIVE SETUP ---
     const theme = useTheme();
-    // 'md' is usually 900px. Below this, we switch to mobile view.
+    // useMediaQuery to detect mobile screen
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     // Fetch Slots
     const { data: slots = [], isFetching } = useQuery({
         // Include range in queryKey so it re-fetches when you click "Next Week"
-        queryKey: QUERY_KEYS.TIME_SLOTS.BY_RANGE(dateRange.start, dateRange.end),
-        queryFn: () => timeSlotService.getSlotsByRange(dateRange.start, dateRange.end),
+        queryKey: QUERY_KEYS.TIME_SLOTS.BY_RANGE(userId, dateRange.start, dateRange.end),
+        queryFn: () => timeSlotService.getSlotsByRange(userId, dateRange.start, dateRange.end),
         // Only fetch if we have a valid range set
         enabled: !!dateRange.start,
+        placeholderData: keepPreviousData,
     });
 
     // Delete Logic
     const deleteMutation = useMutation({
-        mutationFn: timeSlotService.delete,
+        mutationFn: ({ deleteId, userId }: { deleteId: number, userId: number | undefined }) => timeSlotService.delete(deleteId, userId),
         onSuccess: () => {
-            // Invalidate the specific range query
-            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.ALL });
+            // queryClient.setQueriesData(
+            //     { queryKey: QUERY_KEYS.TIME_SLOTS.BY_DOCTOR(userId) },
+            //     (oldData: TimeSlotWithStatus[]) => {
+            //         if (!oldData) return oldData;
+            //         if (Array.isArray(oldData)) {
+            //             return oldData.filter((s: TimeSlotWithStatus) => s.id !== deleteId);
+            //         }
+            //         return oldData;
+            //     }
+            // );
+            //queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.BY_DOCTOR(userId) });
+            queryClient.refetchQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.BY_DOCTOR(userId) });
             setDeleteId(null);
+            toast.success("Time slot deleted successfully");
+        },
+        onError: (error: Error) => {
+            const axiosError = error as AxiosError<{ detail: string }>;
+            const errorMessage = axiosError.response?.data?.detail || error.message;
+            toast.error(errorMessage);
+            console.log("Delete Time Slot error:", axiosError.response?.data);
         }
     });
 
@@ -127,7 +148,7 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
     // Handle "Delete" click inside Popover
     const handleDeleteClick = () => {
         if (selectedSlot) {
-            if (selectedSlot.isBooked) {
+            if (selectedSlot.is_booked) {
                 alert("Cannot delete a booked slot!");
                 return;
             }
@@ -153,8 +174,9 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
     const openPopover = Boolean(anchorEl);
 
     // Create a Ref to control FullCalendar instance in this component
-    // To allow jumping to dates when 'currentDate' changes
+    // To allow jumping to dates when 'currentDate' changes & responsive view change
     const calendarRef = useRef<FullCalendar>(null);
+
     // When 'currentDate' prop changes (from Sidebar), jump to it on Calendar
     useEffect(() => {
         if (calendarRef.current) {
@@ -174,6 +196,8 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
         }
     }, [isMobile]); // trigger render calendar on isMobile change (resize)
 
+    { console.log(calendarEvents) }
+
     return (
         <Box sx={{ height: { xs: 'calc(100vh - 150px)', md: '800px' }, p: { xs: 1, md: 2 } }}>
             <Paper elevation={3} sx={{ p: { xs: 1, md: 2 }, height: '100%', borderRadius: 2, position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -191,10 +215,10 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
 
                 {/* --- Display Mode --- */}
                 <Box sx={{ mb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Chip 
+                    <Chip
                         size="small"
                         label={mode === 'manage' ? '🩺 Manage Mode' : '📅 Booking Mode'}
-                        color={mode === 'manage' ?  'primary' : 'secondary'}
+                        color={mode === 'manage' ? 'primary' : 'secondary'}
                     />
                     <Stack direction="row" spacing={1}>
                         <Chip size="small" label="Available" sx={{ bgcolor: '#4caf50', color: 'white' }} />
@@ -204,17 +228,14 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
                 </Box>
 
                 {/* --- SCROLLABLE CONTAINER --- */}
-                {/* 'auto' enables horizontal scrolling */}
                 <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden' }}>
-                    
-                    {/* minWidth: '800px' ensures columns don't shrink too small on mobile. 
-                           If screen is < 800px, scrollbar appears. */}
+
                     <Box sx={{ minWidth: '800px', height: '100%' }}>
-                        
+
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
-                            
+
                             initialView="timeGridWeek"
                             timeZone="local"
 
@@ -230,8 +251,8 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
                             allDaySlot={false}
                             slotMinTime="00:00:00"
                             slotMaxTime="24:00:00"
-                            eventMinHeight={30} 
-                            
+                            eventMinHeight={30}
+
                             datesSet={(dateInfo) => {
                                 const start = dateInfo.startStr;
                                 const end = dateInfo.endStr;
@@ -247,54 +268,54 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
                 anchorEl={anchorEl}
                 onClose={handleClosePopover}
                 anchorOrigin={{ vertical: 'center', horizontal: 'center' }}
-                transformOrigin={{ vertical:  'center', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'center', horizontal: 'left' }}
                 slotProps={{ paper: { sx: { width: 320, p: 2, borderRadius: 2 } } }}
             >
                 {selectedSlot && (
                     <Stack spacing={2}>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                             <Typography variant="h6" fontSize={16} fontWeight={600}>
-                                {selectedSlot.isBooked ? '🔒 Booked Slot' : selectedSlot.isPast ? '⏰ Past Slot' : '✅ Available Slot'}
+                                {selectedSlot.is_booked ? '🔒 Booked Slot' : selectedSlot.isPast ? '⏰ Past Slot' : '✅ Available Slot'}
                             </Typography>
                             <IconButton size="small" onClick={handleClosePopover}>
                                 <CloseIcon fontSize="small" />
                             </IconButton>
                         </Box>
-                        
+
                         <Divider />
-                        
+
                         <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
                             <AccessTimeIcon fontSize="small" />
                             <Typography variant="body2">
-                                {new Date(selectedSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute:  '2-digit' })}
+                                {new Date(selectedSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 {' - '}
                                 {new Date(selectedSlot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Typography>
                         </Stack>
-                        
+
                         <Typography variant="caption" color="text.secondary">
                             📅 {new Date(selectedSlot.startTime).toLocaleDateString()}
                         </Typography>
 
-                        {/* CONDITIONAL ACTIONS */}
-                        {mode === 'manage' ?  (
+                        {/* Check Role */}
+                        {mode === 'manage' ? (
                             // DOCTOR:  Edit & Delete
                             <Stack direction="row" spacing={1} justifyContent="flex-end" mt={1}>
-                                <Button 
+                                {/* <Button 
                                     size="small" 
                                     startIcon={<EditOutlinedIcon />} 
                                     variant="outlined"
                                     disabled={selectedSlot.isBooked || selectedSlot.isPast}
                                 >
                                     Edit
-                                </Button>
-                                <Button 
-                                    size="small" 
-                                    startIcon={<DeleteOutlineIcon />} 
-                                    variant="outlined" 
-                                    color="error" 
+                                </Button> */}
+                                <Button
+                                    size="small"
+                                    startIcon={<DeleteOutlineIcon />}
+                                    variant="outlined"
+                                    color="error"
                                     onClick={handleDeleteClick}
-                                    disabled={selectedSlot.isBooked} // Can't delete booked slots
+                                    disabled={selectedSlot.is_booked} // Can't delete booked slots
                                 >
                                     Delete
                                 </Button>
@@ -302,10 +323,10 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
                         ) : (
                             // PATIENT: Book This Slot
                             <Box>
-                                {selectedSlot.isBooked ? (
+                                {selectedSlot.is_booked ? (
                                     <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, bgcolor: 'error.50', borderRadius: 1 }}>
                                         <LockIcon color="error" fontSize="small" />
-                                        <Typography variant="body2" color="error. main">
+                                        <Typography variant="body2" color="error.main">
                                             This slot is already booked
                                         </Typography>
                                     </Stack>
@@ -337,11 +358,11 @@ export default function TimeSlotCalendar({ currentDate, mode = 'manage', onBookS
             <ConfirmDeleteDialog
                 open={!!deleteId}
                 onClose={() => setDeleteId(null)}
-                onConfirm={() => deleteId && deleteMutation.mutate(deleteId)} // call delete mutation
+                onConfirm={() => deleteId && deleteMutation.mutate({ deleteId, userId })} // call delete mutation
                 loading={deleteMutation.isPending}
                 title="Delete Time Slot"
                 message="Are you sure you want to delete this time slot? This action cannot be undone."
             />
-        </Box>
+        </Box >
     );
 }

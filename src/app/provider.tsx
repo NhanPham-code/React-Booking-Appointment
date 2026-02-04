@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ReactNode, useState } from 'react';
 import { theme } from '@/src/theme/theme';
 import { AuthProvider } from '../context/AuthContext';
+import SocketWatcher from '../components/socket/SocketWatcher';
 
 export default function Providers({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient({
@@ -23,6 +24,7 @@ export default function Providers({ children }: { children: ReactNode }) {
             <ThemeProvider theme={theme}>
                 <CssBaseline />
                 <AuthProvider>
+                    {/* <SocketWatcher /> */}
                     {children}
                 </AuthProvider>
             </ThemeProvider>

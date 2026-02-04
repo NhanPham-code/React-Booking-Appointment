@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import {
-    Container, Box, Paper, Typography, CircularProgress, Stack, Chip, Tabs, Tab, Alert, 
+    Container, Box, Paper, Typography, CircularProgress, Stack, Chip, Tabs, Tab, Alert,
 } from '@mui/material';
 import EventIcon from '@mui/icons-material/Event';
 import TodayIcon from '@mui/icons-material/Today';
@@ -19,32 +19,37 @@ import { useAuth } from '@/src/context/AuthContext';
 import { QUERY_KEYS } from '@/src/constants/queryKey';
 import { BookingWithStatus, enrichBookingWithStatus, sortBookingsByStatus } from '@/src/utils/bookingUtils';
 import ConfirmDeleteDialog from '@/src/components/common/ConfirmDeleteDialog';
-import BookingCard from '@/src/components/booking/BookingCard';
-import RescheduleDialog from '@/src/components/booking/RescheduleDialog';
+import BookingCard from '@/src/components/card/BookingCard';
+import RescheduleDialog from '@/src/components/dialog/booking/RescheduleDialog';
+import { toast } from "react-toastify";
 
-// Tab filter type
-type TabFilter = 'all' | 'today' | 'upcoming' | 'past';
+// Tab filter enum
+enum TabFilter {
+    All = 'all',
+    Today = 'today',
+    Upcoming = 'upcoming',
+    Past = 'past'
+}
 
 function BookingHistoryPage() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const [tabValue, setTabValue] = useState<TabFilter>('all');
-    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [tabValue, setTabValue] = useState<TabFilter>(TabFilter.All);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
     const [rescheduleBooking, setRescheduleBooking] = useState<BookingWithStatus | null>(null);
 
     // Fetch bookings based on user role
     const { data: bookings = [], isLoading, error } = useQuery({
         queryKey: user?.role === 'doctor'
-            ? QUERY_KEYS.BOOKINGS.ALL
-            : QUERY_KEYS.BOOKINGS.BY_USER(user?.id || ''),
+            ? QUERY_KEYS.BOOKINGS.BY_DOCTOR(user?.id)
+            : QUERY_KEYS.BOOKINGS.BY_USER(user?.id),
         queryFn: async () => {
             if (!user) return [];
 
-            // Doctor sees ALL bookings
+            // Doctor sees ALL their bookings
             if (user.role === 'doctor') {
-                return bookingService.getAll();
+                return bookingService.getByDoctorId(user.id);
             }
-
             // Patient sees ONLY their bookings
             return bookingService.getByUserId(user.id);
         },
@@ -60,25 +65,26 @@ function BookingHistoryPage() {
 
     // Filter by tab value and enriched bookings save in memo to avoid re-computation
     const filteredBookings = React.useMemo(() => {
-        if (tabValue === 'all') return enrichedBookings;
+        if (tabValue === TabFilter.All) return enrichedBookings;
         return enrichedBookings.filter(b => b.status === tabValue);
     }, [enrichedBookings, tabValue]);
 
     // Count by status
     const statusCounts = React.useMemo(() => ({
         all: enrichedBookings.length,
-        today: enrichedBookings.filter(b => b.status === 'today').length,
-        upcoming: enrichedBookings.filter(b => b.status === 'upcoming').length,
-        past: enrichedBookings.filter(b => b.status === 'past').length,
+        today: enrichedBookings.filter(b => b.status === TabFilter.Today).length,
+        upcoming: enrichedBookings.filter(b => b.status === TabFilter.Upcoming).length,
+        past: enrichedBookings.filter(b => b.status === TabFilter.Past).length,
     }), [enrichedBookings]);
 
     // Delete mutation
     const deleteMutation = useMutation({
         mutationFn: bookingService.delete,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BOOKINGS.ALL });
+            queryClient.refetchQueries({ queryKey: QUERY_KEYS.BOOKINGS.ALL });
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TIME_SLOTS.ALL });
             setDeleteId(null);
+            toast.success('Booking cancelled successfully');
         }
     });
 
@@ -96,6 +102,7 @@ function BookingHistoryPage() {
 
     // Error state
     if (error) {
+        toast.error('Failed to load bookings. Please try again.');
         return (
             <>
                 <Navbar />
@@ -111,12 +118,11 @@ function BookingHistoryPage() {
             <Navbar />
             <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
                 <Container maxWidth="lg">
-                    {/* Header */}
+
                     <PageHeader
                         title={user?.role === 'doctor' ? '📋 All Bookings' : '📋 My Bookings'}
                     />
 
-                    {/* Role Indicator */}
                     <Box sx={{ mb: 3 }}>
                         <Chip
                             icon={user?.role === 'doctor' ? <PersonIcon /> : <EventIcon />}
@@ -126,7 +132,6 @@ function BookingHistoryPage() {
                         />
                     </Box>
 
-                    {/* Filter Tabs */}
                     <Paper sx={{ mb: 3 }}>
                         <Tabs
                             value={tabValue}
@@ -135,45 +140,99 @@ function BookingHistoryPage() {
                         >
                             <Tab
                                 label={`All (${statusCounts.all})`}
-                                value="all"
+                                value={TabFilter.All}
                                 icon={<EventIcon />}
                                 iconPosition="start"
+                                sx={
+                                    {
+                                        fontSize: '0.8rem',
+                                        fontStyle: 'italic',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+
+                                        '&.Mui-selected': {
+                                            color: 'primary.main',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bolder',
+                                        }
+                                    }
+                                }
                             />
                             <Tab
                                 label={`Today (${statusCounts.today})`}
-                                value="today"
+                                value={TabFilter.Today}
                                 icon={<TodayIcon />}
                                 iconPosition="start"
-                                sx={{ color: statusCounts.today > 0 ? 'warning.main' : 'inherit' }}
+                                sx={
+                                    {
+                                        fontSize: '0.8rem',
+                                        fontStyle: 'italic',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+
+                                        '&.Mui-selected': {
+                                            color: 'primary.main',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bolder',
+                                        }
+                                    }
+                                }
                             />
                             <Tab
-                                label={`Upcoming (${statusCounts.upcoming})`}
-                                value="upcoming"
+                                label={`Future (${statusCounts.upcoming})`}
+                                value={TabFilter.Upcoming}
                                 icon={<ScheduleIcon />}
                                 iconPosition="start"
-                                sx={{ color: statusCounts.upcoming > 0 ? 'success.main' : 'inherit' }}
+                                sx={
+                                    {
+                                        fontSize: '0.8rem',
+                                        fontStyle: 'italic',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+
+                                        '&.Mui-selected': {
+                                            color: 'primary.main',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bolder',
+                                        }
+                                    }
+                                }
                             />
                             <Tab
-                                label={`Completed (${statusCounts.past})`}
-                                value="past"
+                                label={`Done (${statusCounts.past})`}
+                                value={TabFilter.Past}
                                 icon={<CheckCircleIcon />}
                                 iconPosition="start"
+                                sx={
+                                    {
+                                        fontSize: '0.8rem',
+                                        fontStyle: 'italic',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+
+                                        '&.Mui-selected': {
+                                            color: 'primary.main',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bolder',
+                                        }
+                                    }
+                                }
                             />
                         </Tabs>
                     </Paper>
 
-                    {/* Booking List */}
                     {filteredBookings.length === 0 ? (
                         <Paper sx={{ p: 4, textAlign: 'center' }}>
                             <EventIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                             <Typography variant="h6" color="text.secondary">
-                                {tabValue === 'all' ? 'No bookings yet' : `No ${tabValue} bookings`}
+                                {tabValue === TabFilter.All ? 'No bookings yet' : `No ${tabValue} bookings`}
                             </Typography>
-                            {user?.role === 'patient' && tabValue === 'all' && (
+                            {user?.role === 'patient' && tabValue === TabFilter.All && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                     Go to Book Appointment to make your first booking!
                                 </Typography>
                             )}
+
                         </Paper>
                     ) : (
                         <Stack spacing={2}>
@@ -203,7 +262,7 @@ function BookingHistoryPage() {
             />
 
             {/* Reschedule Dialog */}
-            <RescheduleDialog 
+            <RescheduleDialog
                 open={!!rescheduleBooking} // isOpen null check by rescheduleBooking (if not null, open)
                 booking={rescheduleBooking} // pass the booking to be rescheduled
                 onClose={() => setRescheduleBooking(null)} // onClose handler resets rescheduleBooking
